@@ -1,0 +1,19 @@
+# binaries / build
+*.exe
+*.test
+/无限规则计算器*
+/dist/
+/bin/
+*.out
+
+# IDE / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*~
+
+# local env / secrets
+.env
+.env.*
+*.pem
