@@ -204,21 +204,16 @@ const PageHTML = `<!DOCTYPE html>
   .dice-result .succ-num.crit{color:var(--danger)}
   .dice-result .meta{font-size:0.75rem;color:var(--muted);margin-bottom:8px;word-break:break-word}
   .dice-result .faces-lab{font-size:0.7rem;color:var(--muted);margin-bottom:6px}
-  .dice-result .dice-chips{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+  .dice-result .dice-chips{display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:4px;align-items:center}
   .dice-result .die{
     display:inline-flex;align-items:center;justify-content:center;
-    min-width:32px;height:32px;padding:0 6px;border-radius:8px;
+    width:100%;min-width:0;aspect-ratio:1;height:auto;padding:0;border-radius:5px;
     background:#1e293b;border:1px solid #334155;color:#e2e8f0;
-    font-weight:700;font-size:0.9rem;font-variant-numeric:tabular-nums;
+    font-weight:700;font-size:0.72rem;font-variant-numeric:tabular-nums;
   }
   .dice-result .die.ok{border-color:#34d399;color:#6ee7b7;background:#0f2a22}
   .dice-result .die.exp.ok{border-color:#34d399}
-  .dice-result .die-plus{
-    display:inline-flex;align-items:center;justify-content:center;
-    padding:0 2px;border:none;background:transparent;
-    color:#64748b;font-size:1rem;font-weight:600;line-height:1;
-    min-width:0;height:auto;
-  }
+  .dice-result .die-plus{display:none}
 </style>
 </head>
 <body>
