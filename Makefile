@@ -5,11 +5,13 @@ ARCH ?= $(shell go env GOHOSTARCH)
 
 GOFLAGS ?= -ldflags="-s -w"
 CGO_ENABLED ?= 0
+NPM ?= npm
 
-.PHONY: help build macos windows all clean
+.PHONY: help frontend-install frontend-build build build-go macos windows all clean
 
 help:
 	@printf '%s\n' 'Usage:'
+	@printf '%s\n' '  make frontend-build'
 	@printf '%s\n' '  make build OS=macos [ARCH=amd64|arm64]'
 	@printf '%s\n' '  make build OS=windows [ARCH=amd64|arm64]'
 	@printf '%s\n' '  make macos'
@@ -22,7 +24,15 @@ help:
 	@printf '%s\n' '  OS        Target OS: macos or windows'
 	@printf '%s\n' '  ARCH      Target architecture, default: host architecture'
 
-build:
+frontend-install:
+	@$(NPM) install --prefix frontend
+
+frontend-build: frontend-install
+	@$(NPM) run build --prefix frontend
+
+build: frontend-build build-go
+
+build-go:
 	@mkdir -p '$(OUT_DIR)'
 	@case '$(OS)' in \
 		macos|darwin) \
@@ -40,9 +50,9 @@ macos:
 windows:
 	@$(MAKE) build OS=windows ARCH='$(ARCH)'
 
-all:
-	@$(MAKE) build OS=macos ARCH='$(ARCH)'
-	@$(MAKE) build OS=windows ARCH='$(ARCH)'
+all: frontend-build
+	@$(MAKE) build-go OS=macos ARCH='$(ARCH)'
+	@$(MAKE) build-go OS=windows ARCH='$(ARCH)'
 
 clean:
 	@rm -f '$(OUT_DIR)/$(APP_NAME)_macOS_'* '$(OUT_DIR)/$(APP_NAME)_windows_'*.exe

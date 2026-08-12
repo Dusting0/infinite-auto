@@ -9,7 +9,36 @@ go run .
 # 浏览器打开 http://localhost:8080
 ```
 
-需要 Go 1.22+。
+需要 Go 1.22+。仓库已提交前端构建产物，默认运行不需要额外 npm 命令。
+
+## 前端开发
+
+UI 使用 Vite + React + TypeScript + Tailwind CSS。开发 UI 时建议同时启动 Go API 和 Vite：
+
+```bash
+# 终端 1：Go API / 生产静态服务
+go run .
+
+# 终端 2：Vite 开发服务，/api 会代理到 :8080
+npm install --prefix frontend
+npm run dev --prefix frontend
+```
+
+更新前端源码后，构建产物会输出到 `web/static/dist`，供 Go embed 使用：
+
+```bash
+npm run build --prefix frontend
+```
+
+## 构建
+
+```bash
+make build OS=macos ARCH=amd64
+make build OS=windows ARCH=amd64
+make all
+```
+
+`make build` 会先执行前端构建，再编译 Go 二进制。
 
 ## 功能概要
 

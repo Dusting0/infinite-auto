@@ -2,8 +2,11 @@ package web
 
 import (
 	"encoding/json"
-	"html/template"
+	"io/fs"
 	"net/http"
+	"net/url"
+	"path"
+	"strings"
 
 	"infinite-calc/defense"
 	"infinite-calc/dice"
@@ -21,20 +24,54 @@ func jsonErr(w http.ResponseWriter, msg string) {
 	json.NewEncoder(w).Encode(map[string]string{"error": msg})
 }
 
-// RegisterRoutes 注册所有 HTTP 路由（状态按浏览器 Session 隔离）
-func RegisterRoutes() {
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/" {
-			http.NotFound(w, r)
+func serveFrontend(w http.ResponseWriter, r *http.Request) {
+	if strings.HasPrefix(r.URL.Path, "/api/") {
+		http.NotFound(w, r)
+		return
+	}
+
+	// 首次访问页面即建立 session cookie，保持旧版 go run . 的浏览器隔离行为。
+	_ = sessions.get(w, r)
+
+	dist, err := fs.Sub(frontendFS, "static/dist")
+	if err != nil {
+		http.Error(w, "frontend assets unavailable", http.StatusInternalServerError)
+		return
+	}
+
+	cleanPath := strings.TrimPrefix(path.Clean(r.URL.Path), "/")
+	if cleanPath == "." || cleanPath == "" {
+		cleanPath = "index.html"
+	}
+	if _, err := fs.Stat(dist, cleanPath); err != nil {
+		cleanPath = "index.html"
+	}
+
+	if cleanPath == "index.html" {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		data, err := fs.ReadFile(dist, "index.html")
+		if err != nil {
+			http.Error(w, "frontend index unavailable", http.StatusInternalServerError)
 			return
 		}
-		// 首次访问即建立 session cookie
-		_ = sessions.get(w, r)
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		t, _ := template.New("page").Parse(PageHTML)
-		t.Execute(w, nil)
-	})
+		_, _ = w.Write(data)
+		return
+	}
 
+	r2 := new(http.Request)
+	*r2 = *r
+	r2.URL = newCopyURL(r.URL)
+	r2.URL.Path = "/" + cleanPath
+	http.FileServer(http.FS(dist)).ServeHTTP(w, r2)
+}
+
+func newCopyURL(u *url.URL) *url.URL {
+	v := *u
+	return &v
+}
+
+// RegisterRoutes 注册所有 HTTP 路由（状态按浏览器 Session 隔离）
+func RegisterRoutes() {
 	// 兼容旧链接：防御与血量已合并到同一页
 	http.HandleFunc("/defense", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/#defense", http.StatusFound)
@@ -229,4 +266,6 @@ func RegisterRoutes() {
 		s.HP.Reset()
 		jsonOK(w, s.HP.Snapshot())
 	})
+
+	http.HandleFunc("/", serveFrontend)
 }
