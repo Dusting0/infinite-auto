@@ -4,6 +4,7 @@
 /无限规则计算器*
 /dist/
 /bin/
+/output/
 *.out
 
 # IDE / OS
