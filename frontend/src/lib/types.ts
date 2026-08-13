@@ -115,6 +115,7 @@ export interface AttackInput {
   explodeOn: number;
   bonusSuccess: number;
   isPhysical: boolean;
+  damageKind: "physical" | "energy" | "mixed" | string;
   damageLimit: number;
 }
 

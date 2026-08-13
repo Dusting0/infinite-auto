@@ -4,22 +4,22 @@
 
 @layer base {
   :root {
-    --background: 222 30% 8%;
-    --foreground: 215 24% 93%;
-    --card: 220 28% 12%;
+    --background: 225 35% 7%;
+    --foreground: 210 30% 96%;
+    --card: 222 31% 12%;
     --card-foreground: 215 24% 93%;
     --primary: 199 92% 48%;
     --primary-foreground: 222 30% 8%;
-    --secondary: 216 24% 20%;
+    --secondary: 218 27% 20%;
     --secondary-foreground: 215 24% 92%;
-    --muted: 218 20% 18%;
+    --muted: 220 24% 17%;
     --muted-foreground: 216 14% 67%;
     --accent: 168 76% 27%;
     --accent-foreground: 170 30% 96%;
     --destructive: 349 78% 55%;
     --destructive-foreground: 0 0% 100%;
-    --border: 216 24% 24%;
-    --input: 216 24% 24%;
+    --border: 215 28% 25%;
+    --input: 215 28% 25%;
     --ring: 199 92% 48%;
     --radius: 0.5rem;
   }
@@ -38,6 +38,8 @@
     min-width: 320px;
     font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
     letter-spacing: 0;
+    background-image: radial-gradient(circle at 14% 2%, rgba(14, 116, 144, 0.16), transparent 30rem), radial-gradient(circle at 90% 15%, rgba(30, 64, 175, 0.10), transparent 34rem);
+    background-attachment: fixed;
   }
 
   button,
@@ -55,12 +57,43 @@
   input[type="number"] {
     appearance: textfield;
   }
+
+  ::selection { background: hsl(var(--primary) / 0.35); }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-thumb { border-radius: 999px; background: hsl(var(--border)); }
 }
 
 @layer components {
   .section-label {
-    @apply text-xs font-semibold uppercase tracking-[0.16em] text-sky-300;
+    @apply text-[10px] font-semibold uppercase tracking-[0.18em] text-sky-300;
   }
+
+  .font-display { font-family: Georgia, "Times New Roman", "Songti SC", serif; }
+  .app-shell { @apply lg:grid lg:grid-cols-[218px_minmax(0,1fr)] lg:gap-7; }
+  .app-sidebar { @apply mb-5 flex rounded-2xl border border-border/80 bg-card/60 p-2 shadow-2xl shadow-black/10 backdrop-blur-sm lg:sticky lg:top-6 lg:mb-0 lg:h-[calc(100vh-3rem)] lg:flex-col lg:p-4; }
+  .nav-item { @apply inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-sky-400/10 hover:text-sky-100 lg:flex lg:w-full; }
+  .nav-item-active { @apply bg-sky-400/15 text-sky-100 shadow-sm ring-1 ring-inset ring-sky-300/20; }
+  .hero-header { @apply flex flex-wrap items-end justify-between gap-4 rounded-2xl border border-border/60 bg-card/45 px-5 py-5 shadow-xl shadow-black/5 backdrop-blur-sm sm:px-6; }
+  .eyebrow { @apply text-[10px] font-bold uppercase tracking-[0.22em] text-sky-300; }
+  .status-orb { @apply flex items-center gap-2 rounded-xl border border-emerald-400/15 bg-emerald-400/5 px-3 py-2 text-sm text-muted-foreground; }
+  .status-orb strong { @apply text-xl font-semibold tabular-nums text-emerald-300; }
+  .stat-pill { @apply flex min-h-[76px] flex-col rounded-xl border border-border bg-background/70 px-3 py-2.5 text-left; }
+  .stat-pill-editable { @apply cursor-pointer transition-all duration-150 hover:-translate-y-0.5 hover:border-sky-300/50 hover:bg-sky-400/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring; }
+  .stat-pill-editable strong { color: inherit; }
+  .number-field-trigger { @apply flex min-h-[62px] w-full flex-col rounded-lg border border-input bg-background px-3 py-2 text-left transition-all hover:border-sky-300/50 hover:bg-sky-400/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring; }
+  .number-field-trigger strong { @apply mt-1 text-lg font-semibold tabular-nums text-foreground; }
+  .number-editor-backdrop { @apply fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm; }
+  .number-editor { @apply w-full max-w-sm rounded-2xl border border-sky-300/20 bg-card p-5 shadow-2xl shadow-black/50; }
+  .number-stepper { @apply mt-6 grid grid-cols-[56px_1fr_56px] items-center gap-2; }
+  .number-stepper button { @apply flex h-14 items-center justify-center rounded-xl border border-border bg-secondary text-sky-200 transition-colors hover:border-sky-300/50 hover:bg-sky-400/15; }
+  .number-stepper input { @apply h-14 min-w-0 rounded-xl border border-sky-300/25 bg-background text-center text-2xl font-semibold tabular-nums text-foreground outline-none ring-0 transition-colors focus:border-sky-300 focus:ring-2 focus:ring-sky-400/20; }
+  .icon-dismiss { @apply flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-background text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground; }
+  .reset-dialog { @apply w-full max-w-md rounded-2xl border border-rose-400/25 bg-card p-6 shadow-2xl shadow-black/50; }
+  .reset-dialog-icon { @apply mb-4 flex h-12 w-12 items-center justify-center rounded-2xl border border-rose-300/25 bg-rose-500/15 text-rose-300; }
+  .combat-select { @apply h-11 appearance-none rounded-xl border-sky-300/20 bg-sky-400/[0.06] pr-10 font-semibold text-sky-100 shadow-inner shadow-sky-950/20 transition-all hover:border-sky-300/50 hover:bg-sky-400/[0.12] focus:border-sky-300; }
+  .combat-select-danger { @apply border-rose-300/20 bg-rose-400/[0.06] text-rose-100 hover:border-rose-300/50 hover:bg-rose-400/[0.12] focus:border-rose-300; }
+  .combat-select-icon { @apply pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-sky-300; }
+  .combat-select-danger + .combat-select-icon { @apply text-rose-300; }
 }
 
 @media (max-width: 640px) {
@@ -72,4 +105,7 @@
   .grid-cols-\[48px_1fr_1fr_auto_64px\] {
     grid-template-columns: 1fr;
   }
+
+  .app-sidebar { overflow-x: auto; }
+  .app-sidebar > :last-child { display: none; }
 }
