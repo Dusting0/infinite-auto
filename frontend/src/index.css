@@ -75,11 +75,23 @@
   .content-wrap { container-type: inline-size; container-name: content; }
   .main-grid { @apply grid gap-5; }
   .eyebrow { @apply text-[10px] font-bold uppercase tracking-[0.22em] text-sky-300; }
-  .stat-pill { @apply flex min-h-[76px] flex-col rounded-xl border border-border bg-background/70 px-3 py-2.5 text-left; }
-  .stat-pill-editable { @apply cursor-pointer transition-all duration-150 hover:-translate-y-0.5 hover:border-sky-300/50 hover:bg-sky-400/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring; }
+  /* 扁平数值框：文案与数值同一行平齐展示，高度与 Select/Input 一致（h-9）。 */
+  .stat-pill { @apply flex h-9 items-center justify-between gap-1.5 rounded-md border border-border bg-background/70 px-2 text-left; }
+  .stat-pill strong { @apply text-sm font-semibold tabular-nums; }
+  .stat-pill-editable { @apply cursor-pointer transition-colors hover:border-sky-300/50 hover:bg-sky-400/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring; }
   .stat-pill-editable strong { color: inherit; }
-  .number-field-trigger { @apply flex min-h-[62px] w-full flex-col rounded-lg border border-input bg-background px-3 py-2 text-left transition-all hover:border-sky-300/50 hover:bg-sky-400/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring; }
-  .number-field-trigger strong { @apply mt-1 text-lg font-semibold tabular-nums text-foreground; }
+  .number-field-trigger { @apply flex h-9 w-full items-center justify-between gap-1.5 rounded-md border border-input bg-background px-2 text-left transition-colors hover:border-sky-300/50 hover:bg-sky-400/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring; }
+  .number-field-trigger strong { @apply text-sm font-semibold tabular-nums text-foreground; }
+
+  /* 失效态：灰框 + 数值划线（措手不及/未格挡/接触攻击/未掩蔽）；增强态：天蓝描边（全力防御基础翻倍）。 */
+  .field-inactive { border-color: hsl(216 12% 32%); background: hsl(216 14% 13%); }
+  .field-inactive:hover { border-color: hsl(216 12% 42%); background: hsl(216 14% 16%); }
+  .field-inactive strong { color: hsl(216 14% 56%); text-decoration: line-through; text-decoration-thickness: 1.5px; }
+  .field-boosted { border-color: hsl(199 92% 48% / .6); background: hsl(199 92% 48% / .07); }
+  .field-boosted:hover { border-color: hsl(199 92% 55% / .85); background: hsl(199 92% 48% / .12); }
+  .field-boosted strong { color: hsl(199 92% 64%); }
+  .tag-inactive { font-size: 10px; font-weight: 700; padding: 0 5px; border-radius: 999px; color: hsl(216 14% 62%); background: hsl(216 14% 24% / .6); border: 1px solid hsl(216 14% 38% / .6); }
+  .tag-boosted { font-size: 10px; font-weight: 700; padding: 0 5px; border-radius: 999px; color: hsl(199 92% 68%); background: hsl(199 92% 48% / .14); border: 1px solid hsl(199 92% 48% / .4); }
   .number-editor-backdrop { @apply fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm; }
   .number-editor { @apply w-full max-w-sm rounded-2xl border border-sky-300/20 bg-card p-5 shadow-2xl shadow-black/50; }
   .number-stepper { @apply mt-6 grid grid-cols-[56px_1fr_56px] items-center gap-2; }
@@ -93,7 +105,7 @@
   .long-rest-option { @apply flex flex-col items-start gap-1 rounded-xl border border-border bg-background/70 p-4 text-left transition-all hover:-translate-y-0.5 hover:border-sky-300/50 hover:bg-sky-400/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring; }
   .long-rest-option span { @apply text-xs text-muted-foreground; }
   .long-rest-option strong { @apply text-sm font-semibold text-sky-200; }
-  .combat-select { @apply h-11 appearance-none rounded-xl border-sky-300/20 bg-sky-400/[0.06] pr-10 font-semibold text-sky-100 shadow-inner shadow-sky-950/20 transition-all hover:border-sky-300/50 hover:bg-sky-400/[0.12] focus:border-sky-300; }
+  .combat-select { @apply h-9 appearance-none rounded-md border-sky-300/20 bg-sky-400/[0.06] pr-10 font-semibold text-sky-100 shadow-inner shadow-sky-950/20 transition-colors hover:border-sky-300/50 hover:bg-sky-400/[0.12] focus:border-sky-300; }
   .combat-select-danger { @apply border-rose-300/20 bg-rose-400/[0.06] text-rose-100 hover:border-rose-300/50 hover:bg-rose-400/[0.12] focus:border-rose-300; }
   .combat-select-icon { @apply pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-sky-300; }
   .combat-select-danger + .combat-select-icon { @apply text-rose-300; }

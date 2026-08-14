@@ -24,3 +24,6 @@
 .env
 .env.*
 *.pem
+
+# local design proposals (mockups)
+/design/
