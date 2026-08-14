@@ -200,6 +200,45 @@ func TestDefenseBonusSubtractsDamage(t *testing.T) {
 	}
 }
 
+func TestMixedDamageUsesLowerReduction(t *testing.T) {
+	p := NewPreset("t")
+	p.DRValue = 5
+	p.ERValue = 2
+	p.DamageAbsorb = 3
+	p.DamageAbsorbType = "physical"
+	r := p.ResolveAttack(AttackInput{AttackDP: 100, BonusSuccess: 30, DamageKind: "mixed", DamageLimit: 10})
+	if r.Miss {
+		t.Fatalf("不应未命中: %s", r.MissReason)
+	}
+	if r.AfterLimit != 10 {
+		t.Fatalf("上限后期望10，得%d", r.AfterLimit)
+	}
+	if r.AfterDR != 8 {
+		t.Fatalf("混合伤害应吃较低减免2，减免后期望8，得%d", r.AfterDR)
+	}
+	if r.AbsorbApplied != 3 || r.FinalDamage != 5 {
+		t.Fatalf("混合伤害应触发物理吸收3，得 absorb=%d final=%d", r.AbsorbApplied, r.FinalDamage)
+	}
+}
+
+func TestEnergyDamageUsesERAndSkipsPhysicalAbsorb(t *testing.T) {
+	p := NewPreset("t")
+	p.DRValue = 5
+	p.ERValue = 2
+	p.DamageAbsorb = 3
+	p.DamageAbsorbType = "physical"
+	r := p.ResolveAttack(AttackInput{AttackDP: 100, BonusSuccess: 30, DamageKind: "energy", DamageLimit: 10})
+	if r.Miss {
+		t.Fatalf("不应未命中: %s", r.MissReason)
+	}
+	if r.AfterDR != 8 {
+		t.Fatalf("能量伤害应吃ER2，减免后期望8，得%d", r.AfterDR)
+	}
+	if r.AbsorbApplied != 0 || r.FinalDamage != 8 {
+		t.Fatalf("能量伤害不应触发物理吸收，得 absorb=%d final=%d", r.AbsorbApplied, r.FinalDamage)
+	}
+}
+
 // 完美防御：不进三池；生效时直接从攻击 DP 扣除；不被击破
 func TestPerfectDefense(t *testing.T) {
 	p := NewPreset("t")

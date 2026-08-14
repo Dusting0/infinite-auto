@@ -6,15 +6,16 @@ import (
 
 // AttackInput 自定义伤害输入（敌方攻击）
 type AttackInput struct {
-	Ranged        bool `json:"ranged"`        // false=近战 true=远程
-	AttackDP      int  `json:"attackDP"`      // 敌方攻击 DP
-	Speed         int  `json:"speed"`         // 高速
-	ArmorPierce   int  `json:"armorPierce"`   // 破甲
-	MagicPierce   int  `json:"magicPierce"`   // 破魔
-	ExplodeOn     int  `json:"explodeOn"`     // 加骰 8/9/10
-	BonusSuccess  int  `json:"bonusSuccess"`  // 攻击附加成功（可负）
-	IsPhysical    bool `json:"isPhysical"`    // 是否物理伤害（影响物理吸收）
-	DamageLimit   int  `json:"damageLimit"`   // 伤害上限；≤0 不生效
+	Ranged       bool   `json:"ranged"`       // false=近战 true=远程
+	AttackDP     int    `json:"attackDP"`     // 敌方攻击 DP
+	Speed        int    `json:"speed"`        // 高速
+	ArmorPierce  int    `json:"armorPierce"`  // 破甲
+	MagicPierce  int    `json:"magicPierce"`  // 破魔
+	ExplodeOn    int    `json:"explodeOn"`    // 加骰 8/9/10
+	BonusSuccess int    `json:"bonusSuccess"` // 攻击附加成功（可负）
+	IsPhysical   bool   `json:"isPhysical"`   // 兼容旧前端：true=物理，false=能量
+	DamageKind   string `json:"damageKind"`   // physical | energy | mixed
+	DamageLimit  int    `json:"damageLimit"`  // 伤害上限；≤0 不生效
 }
 
 // PoolBreakdown 击破前后分项（便于 UI 展示）
@@ -34,18 +35,18 @@ type PoolBreakdown struct {
 	NaturalBefore int `json:"naturalBefore"`
 	NaturalAfter  int `json:"naturalAfter"`
 	// 破魔池顺序：力场、偏斜、洞察、掩蔽、其他2、其他3
-	ForceBefore       int `json:"forceBefore"`
-	ForceAfter        int `json:"forceAfter"`
-	DeflectionBefore  int `json:"deflectionBefore"`
-	DeflectionAfter   int `json:"deflectionAfter"`
-	InsightBefore     int `json:"insightBefore"`
-	InsightAfter      int `json:"insightAfter"`
-	CoverBefore       int `json:"coverBefore"`
-	CoverAfter        int `json:"coverAfter"`
-	Other2Before      int `json:"other2Before"`
-	Other2After       int `json:"other2After"`
-	Other3Before      int `json:"other3Before"`
-	Other3After       int `json:"other3After"`
+	ForceBefore      int `json:"forceBefore"`
+	ForceAfter       int `json:"forceAfter"`
+	DeflectionBefore int `json:"deflectionBefore"`
+	DeflectionAfter  int `json:"deflectionAfter"`
+	InsightBefore    int `json:"insightBefore"`
+	InsightAfter     int `json:"insightAfter"`
+	CoverBefore      int `json:"coverBefore"`
+	CoverAfter       int `json:"coverAfter"`
+	Other2Before     int `json:"other2Before"`
+	Other2After      int `json:"other2After"`
+	Other3Before     int `json:"other3Before"`
+	Other3After      int `json:"other3After"`
 
 	SpeedPoolBefore int `json:"speedPoolBefore"`
 	SpeedPoolAfter  int `json:"speedPoolAfter"`
@@ -62,37 +63,37 @@ type AttackResult struct {
 	EffectiveDefense int    `json:"effectiveDefense"`
 	ActualDP         int    `json:"actualDP"`
 	// 抵消后实际生效的击破值
-	EffSpeed       int `json:"effSpeed"`
-	EffArmorPierce int `json:"effArmorPierce"`
-	EffMagicPierce int `json:"effMagicPierce"`
-	ResistSpeed          int  `json:"resistSpeed"`
-	ResistAP             int  `json:"resistAP"`
-	ResistMagic          int  `json:"resistMagic"`
-	TouchAttack          bool `json:"touchAttack"`
-	PerfectDefense       int  `json:"perfectDefense"`
-	PerfectDefenseActive bool `json:"perfectDefenseActive"`
+	EffSpeed             int           `json:"effSpeed"`
+	EffArmorPierce       int           `json:"effArmorPierce"`
+	EffMagicPierce       int           `json:"effMagicPierce"`
+	ResistSpeed          int           `json:"resistSpeed"`
+	ResistAP             int           `json:"resistAP"`
+	ResistMagic          int           `json:"resistMagic"`
+	TouchAttack          bool          `json:"touchAttack"`
+	PerfectDefense       int           `json:"perfectDefense"`
+	PerfectDefenseActive bool          `json:"perfectDefenseActive"`
 	Pools                PoolBreakdown `json:"pools"`
 
 	// 掷骰（仅未因 DP<=0 未命中时有）
 	Roll *dice.Result `json:"roll,omitempty"`
 
-	NaturalSuccess int  `json:"naturalSuccess"`
-	FinalSuccess   int  `json:"finalSuccess"`
-	DefenseBonus   int  `json:"defenseBonus"`
+	NaturalSuccess int `json:"naturalSuccess"`
+	FinalSuccess   int `json:"finalSuccess"`
+	DefenseBonus   int `json:"defenseBonus"`
 
-	RawDamage       int    `json:"rawDamage"`       // 掷骰最终成功数（上限前）
-	AfterLimit      int    `json:"afterLimit"`      // 伤害上限封顶后
-	DamageLimit     int    `json:"damageLimit"`     // 本次使用的上限（≤0 表示未启用）
-	AfterDR         int    `json:"afterDR"`
-	AfterAbsorb     int    `json:"afterAbsorb"`
-	FinalDamage     int    `json:"finalDamage"`
-	DRValue         int    `json:"drValue"`
-	DRType          string `json:"drType"`
-	ERValue         int    `json:"erValue"`
-	ERType          string `json:"erType"`
-	AbsorbApplied   int    `json:"absorbApplied"`
-	AbsorbType      string `json:"absorbType"`
-	Summary         string `json:"summary"`
+	RawDamage     int    `json:"rawDamage"`   // 掷骰最终成功数（上限前）
+	AfterLimit    int    `json:"afterLimit"`  // 伤害上限封顶后
+	DamageLimit   int    `json:"damageLimit"` // 本次使用的上限（≤0 表示未启用）
+	AfterDR       int    `json:"afterDR"`
+	AfterAbsorb   int    `json:"afterAbsorb"`
+	FinalDamage   int    `json:"finalDamage"`
+	DRValue       int    `json:"drValue"`
+	DRType        string `json:"drType"`
+	ERValue       int    `json:"erValue"`
+	ERType        string `json:"erType"`
+	AbsorbApplied int    `json:"absorbApplied"`
+	AbsorbType    string `json:"absorbType"`
+	Summary       string `json:"summary"`
 }
 
 // subtract 按顺序从一组值中扣除 pierce，返回 after 切片
@@ -124,6 +125,35 @@ func sum(a []int) int {
 		s += v
 	}
 	return s
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+func damageKind(in AttackInput) string {
+	switch in.DamageKind {
+	case "physical", "energy", "mixed":
+		return in.DamageKind
+	}
+	if in.IsPhysical {
+		return "physical"
+	}
+	return "energy"
+}
+
+func damageReduction(kind string, drValue, erValue int) int {
+	switch kind {
+	case "physical":
+		return drValue
+	case "mixed":
+		return min(drValue, erValue)
+	default:
+		return erValue
+	}
 }
 
 // ResolveAttack 根据当前防御预设结算一次攻击，不修改预设、不写血量。
@@ -217,10 +247,11 @@ func (p *Preset) ResolveAttack(in AttackInput) AttackResult {
 		DefenseBonus:         p.DefenseBonusSuccess,
 		DRValue:              p.DRValue,
 		DRType:               p.DRType,
-		ERValue:          p.ERValue,
-		ERType:           p.ERType,
-		AbsorbType:       p.DamageAbsorbType,
+		ERValue:              p.ERValue,
+		ERType:               p.ERType,
+		AbsorbType:           p.DamageAbsorbType,
 	}
+	kind := damageKind(in)
 
 	// DP≤0：直接未命中（不走机运骰）
 	if actualDP <= 0 {
@@ -258,22 +289,18 @@ func (p *Preset) ResolveAttack(in AttackInput) AttackResult {
 	}
 	res.AfterLimit = capped
 
-	// 物理 → DR；非物理 → ER（类型文案仅展示）
-	reduced := capped
-	if in.IsPhysical {
-		reduced = capped - p.DRValue
-	} else {
-		reduced = capped - p.ERValue
-	}
+	// 物理 → DR；能量 → ER；混合 → 吃较低的减免，保留更高伤害。
+	reduction := damageReduction(kind, p.DRValue, p.ERValue)
+	reduced := capped - reduction
 	if reduced < 0 {
 		reduced = 0
 	}
 	res.AfterDR = reduced
 
-	// 伤害吸收：全伤害始终；物理吸收仅物理伤害
+	// 伤害吸收：全伤害始终；物理吸收对物理和混合伤害生效。
 	absorb := 0
 	if p.DamageAbsorb > 0 {
-		if p.DamageAbsorbType == "all" || (p.DamageAbsorbType == "physical" && in.IsPhysical) {
+		if p.DamageAbsorbType == "all" || (p.DamageAbsorbType == "physical" && kind != "energy") {
 			absorb = p.DamageAbsorb
 		}
 	}
