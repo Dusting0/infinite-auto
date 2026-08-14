@@ -35,7 +35,13 @@ type CustomComp struct {
 // Preset 一份防御预设
 type Preset struct {
 	mu sync.Mutex
+	presetData
+}
 
+// presetData 包含 Preset 的全部数据字段（不含 mu）。独立出来是为了让 Reset
+// 可以整体复制数据而不触碰已上锁的 mu——直接 *p = *NewPreset(name) 会用新预设
+// 零值的 mu 覆盖当前已上锁的 mu，导致 defer Unlock 解锁一把未上锁的 mutex 而 panic。
+type presetData struct {
 	Name string `json:"name"`
 
 	// 状态开关
@@ -99,12 +105,14 @@ func NewPreset(name string) *Preset {
 		name = "默认预设"
 	}
 	return &Preset{
-		Name:             name,
-		CoverBonus:       4, // 角卡掩蔽默认 +4
-		Other2Name:       "其他1",
-		Other3Name:       "其他2",
-		DamageAbsorbType: "physical",
-		Customs:          []CustomComp{},
+		presetData: presetData{
+			Name:             name,
+			CoverBonus:       4, // 角卡掩蔽默认 +4
+			Other2Name:       "其他1",
+			Other3Name:       "其他2",
+			DamageAbsorbType: "physical",
+			Customs:          []CustomComp{},
+		},
 	}
 }
 
@@ -403,5 +411,6 @@ func (p *Preset) Reset() {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	name := p.Name
-	*p = *NewPreset(name)
+	// 只复制数据字段，保留已上锁的 mu。presetData 不含 mutex，整体复制安全。
+	p.presetData = NewPreset(name).presetData
 }

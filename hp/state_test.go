@@ -16,7 +16,7 @@ func TestNewHPState(t *testing.T) {
 	if h.Max != 20 || h.Intact() != 20 || h.B != 0 || h.L != 0 || h.A != 0 {
 		t.Fatalf("初始化失败: Max=%d Intact=%d B=%d L=%d A=%d", h.Max, h.Intact(), h.B, h.L, h.A)
 	}
-	if h.Status() != "✅ 正常" {
+	if h.Status() != "正常" {
 		t.Fatalf("期望状态正常，得到 %s", h.Status())
 	}
 }
@@ -147,7 +147,7 @@ func TestFillThenOverflowUpgrade(t *testing.T) {
 func TestDeathWhenAllMalignant(t *testing.T) {
 	h := NewHPState(3)
 	h.ApplyDamage(3, "恶性")
-	if h.Status() != "💀 死亡" {
+	if h.Status() != "死亡" {
 		t.Fatalf("期望死亡，得到 %s (A=%d)", h.Status(), h.A)
 	}
 }
@@ -158,7 +158,7 @@ func TestDeathWhenAllMalignant(t *testing.T) {
 func TestUnconsciousWhenNoIntact(t *testing.T) {
 	h := NewHPState(5)
 	h.ApplyDamage(5, "严重")
-	if h.Status() != "😵 昏迷（无完好生命值）" {
+	if h.Status() != "昏迷" {
 		t.Fatalf("期望昏迷，得到 %s", h.Status())
 	}
 }
@@ -424,7 +424,7 @@ func TestSetDamagesOverflowNegativeIntact(t *testing.T) {
 	if h.L != 8 || h.Intact() != -3 {
 		t.Fatalf("期望 L=8 Intact=-3，实际 L=%d Intact=%d", h.L, h.Intact())
 	}
-	if h.Status() != "⚠️ 伤害超过上限" {
+	if h.Status() != "伤害超过上限" {
 		t.Fatalf("期望状态提示超过上限，得到 %s", h.Status())
 	}
 }
