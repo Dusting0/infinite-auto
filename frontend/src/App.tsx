@@ -1,5 +1,5 @@
-import { useEffect, useState, type ReactNode } from "react";
-import { AlertTriangle, CheckCircle2, ChevronDown, CircleSlash, Coffee, Dices, EyeOff, HeartPulse, Minus, Moon, Plus, RotateCcw, Shield, Skull, Trash2, X } from "lucide-react";
+import { useEffect, useState } from "react";
+import { AlertTriangle, CheckCircle2, ChevronDown, CircleSlash, Coffee, Dices, EyeOff, HeartPulse, Minus, Moon, Pencil, Plus, RotateCcw, Shield, Skull, Trash2, X } from "lucide-react";
 import { getJson, postJson } from "./lib/api";
 import { toInt } from "./lib/utils";
 import type {
@@ -16,6 +16,7 @@ import { Checkbox } from "./components/ui/checkbox";
 import { Input } from "./components/ui/input";
 import { Label } from "./components/ui/label";
 import { Select } from "./components/ui/select";
+import { Switch } from "./components/ui/switch";
 
 const damageTypes = ["冲击", "严重", "恶性"] as const;
 const combatDamageKinds = [
@@ -70,7 +71,7 @@ const emptyHp: HpSnapshot = {
   log: [],
 };
 
-const numberFields: Array<{ key: keyof DefensePreset; label: string; group: "speed" | "armor" | "magic" | "perfect" | "absorb" | "other" }> = [
+const numberFields: Array<{ key: keyof DefensePreset; label: string; group: "speed" | "armor" | "magic" | "perfect" | "absorb" | "other"; editableLabelKey?: "other2Name" | "other3Name" }> = [
   { key: "base", label: "基础", group: "speed" },
   { key: "dodge", label: "闪避", group: "speed" },
   { key: "block", label: "格挡", group: "speed" },
@@ -81,10 +82,10 @@ const numberFields: Array<{ key: keyof DefensePreset; label: string; group: "spe
   { key: "deflection", label: "偏斜", group: "magic" },
   { key: "insight", label: "洞察", group: "magic" },
   { key: "coverBonus", label: "掩蔽", group: "magic" },
-  { key: "other2", label: "其他1", group: "other" },
-  { key: "other3", label: "其他2", group: "other" },
+  { key: "other2", label: "其他1", group: "other", editableLabelKey: "other2Name" },
+  { key: "other3", label: "其他2", group: "other", editableLabelKey: "other3Name" },
   { key: "perfectDefense", label: "完美防御", group: "perfect" },
-  { key: "defenseBonusSuccess", label: "防御附加", group: "absorb" },
+  { key: "defenseBonusSuccess", label: "防御附加成功", group: "absorb" },
   { key: "damageAbsorb", label: "伤害吸收", group: "absorb" },
   { key: "drValue", label: "DR", group: "absorb" },
   { key: "erValue", label: "ER", group: "absorb" },
@@ -157,24 +158,72 @@ function computeDefensePreview(draft: DefensePreset) {
   };
 }
 
+type FieldStatus = "normal" | "inactive" | "boosted";
+
+// fieldState 计算某防御成分的生效值与状态。
+// 失效：被状态压制（措手不及/未格挡/接触攻击/未掩蔽）→ 外显原值 + 划线 + 红框「失效」。
+// 增强：全力防御将基础翻倍 → 显示 ×2 值 + 蓝框「增强」。
+// 触发条件：措手不及→基础/闪避/格挡；未格挡→格挡/盾牌；接触攻击→盾牌/盔甲/天生；未掩蔽→掩蔽。
+function fieldState(draft: DefensePreset, key: keyof DefensePreset): { effective: number; status: FieldStatus } {
+  const v = asNumber(draft[key]);
+  switch (key) {
+    case "base":
+      if (draft.flatFooted) return { effective: v, status: "inactive" };
+      if (draft.fullDefense) return { effective: v * 2, status: "boosted" };
+      return { effective: v, status: "normal" };
+    case "dodge":
+      if (draft.flatFooted) return { effective: v, status: "inactive" };
+      return { effective: v, status: "normal" };
+    case "block":
+      if (draft.flatFooted || !draft.blocking) return { effective: v, status: "inactive" };
+      return { effective: v, status: "normal" };
+    case "shieldMelee":
+      if (!draft.blocking || draft.touchAttack) return { effective: v, status: "inactive" };
+      return { effective: v, status: "normal" };
+    case "armorMelee":
+    case "natural":
+      if (draft.touchAttack) return { effective: v, status: "inactive" };
+      return { effective: v, status: "normal" };
+    case "coverBonus":
+      if (!draft.cover) return { effective: v, status: "inactive" };
+      return { effective: v, status: "normal" };
+    default:
+      return { effective: v, status: "normal" };
+  }
+}
+
 type NumberEditorProps = {
   label: string;
   value: number;
+  displayValue?: number;
+  status?: FieldStatus;
   onChange: (value: number) => void;
   min?: number;
   allowNegative?: boolean;
   triggerClassName?: string;
-  compact?: boolean;
+  onLabelChange?: (label: string) => void;
 };
 
-function NumberEditor({ label, value, onChange, min, allowNegative = false, triggerClassName, compact = false }: NumberEditorProps) {
+function NumberEditor({ label, value, displayValue, status = "normal", onChange, min, allowNegative = false, triggerClassName, onLabelChange }: NumberEditorProps) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(String(value));
+  const [editingLabel, setEditingLabel] = useState(false);
+  const [labelDraft, setLabelDraft] = useState(label);
   const lowerBound = min ?? (allowNegative ? undefined : 0);
 
   useEffect(() => {
-    if (open) setDraft(String(value));
-  }, [open, value]);
+    if (open) {
+      setDraft(String(value));
+      setLabelDraft(label);
+      setEditingLabel(false);
+    }
+  }, [open, value, label]);
+
+  const commitLabel = () => {
+    const next = labelDraft.trim().slice(0, 5);
+    setEditingLabel(false);
+    if (next && next !== label) onLabelChange?.(next);
+  };
 
   const adjust = (amount: number) => {
     const next = toInt(draft, value) + amount;
@@ -188,16 +237,38 @@ function NumberEditor({ label, value, onChange, min, allowNegative = false, trig
 
   return (
     <>
-      <button type="button" className={triggerClassName} onClick={() => setOpen(true)} aria-haspopup="dialog" aria-expanded={open} aria-label={`编辑${label}`}>
-        {compact ? <><span>{label}</span><strong>{value}</strong></> : <><span className="text-[11px] text-muted-foreground">{label}</span><strong className="mt-1 text-lg font-semibold tabular-nums">{value}</strong></>}
+      <button type="button" className={[triggerClassName, status === "inactive" ? "field-inactive" : status === "boosted" ? "field-boosted" : ""].filter(Boolean).join(" ")} onClick={() => setOpen(true)} aria-haspopup="dialog" aria-expanded={open} aria-label={`编辑${label}`}>
+        <span className="inline-flex items-center gap-1 whitespace-nowrap text-xs text-muted-foreground shrink-0">
+          {label}
+          {status === "inactive" && <span className="tag-inactive">失效</span>}
+          {status === "boosted" && <span className="tag-boosted">增强</span>}
+        </span>
+        <strong>{displayValue ?? value}</strong>
       </button>
       {open && (
         <div className="number-editor-backdrop" role="presentation" onMouseDown={() => setOpen(false)}>
           <section className="number-editor" role="dialog" aria-modal="true" aria-labelledby="number-editor-title" onMouseDown={(event) => event.stopPropagation()}>
             <div className="flex items-start justify-between gap-4">
-              <div>
+              <div className="min-w-0">
                 <div className="eyebrow">数值调整</div>
-                <h3 id="number-editor-title" className="font-display mt-1 text-2xl font-semibold text-foreground">{label}</h3>
+                <div className="mt-1 flex items-center gap-2">
+                  <h3 id="number-editor-title" className="font-display text-2xl font-semibold text-foreground">{label}</h3>
+                  {onLabelChange && (
+                    <button type="button" className="icon-dismiss" onClick={() => { setEditingLabel((value) => !value); setLabelDraft(label); }} aria-label="编辑名称"><Pencil className="h-4 w-4" /></button>
+                  )}
+                </div>
+                {editingLabel && onLabelChange && (
+                  <input
+                    className="mt-2 h-9 w-full rounded-md border border-sky-300/30 bg-background px-2 text-sm text-foreground outline-none transition-colors focus:border-sky-300 focus-visible:ring-2 focus-visible:ring-sky-400/20"
+                    maxLength={5}
+                    autoFocus
+                    value={labelDraft}
+                    onChange={(event) => setLabelDraft(event.target.value)}
+                    onBlur={commitLabel}
+                    onKeyDown={(event) => { if (event.key === "Enter") commitLabel(); if (event.key === "Escape") setEditingLabel(false); }}
+                    placeholder="最多 5 字"
+                  />
+                )}
               </div>
               <button type="button" className="icon-dismiss" onClick={() => setOpen(false)} aria-label="关闭"><X className="h-4 w-4" /></button>
             </div>
@@ -238,11 +309,11 @@ function StatPill({ label, value, tone = "default", onChange, min, allowNegative
   }[tone];
   const className = `stat-pill ${onChange ? "stat-pill-editable" : ""} ${toneClass}`;
   if (onChange && typeof value === "number") return <NumberEditor label={label} value={value} onChange={onChange} min={min} allowNegative={allowNegative} triggerClassName={className} />;
-  return <div className={className}><span className="text-[11px] text-muted-foreground">{label}</span><strong className="mt-1 text-lg font-semibold tabular-nums">{value}</strong></div>;
+  return <div className={className}><span className="text-xs text-muted-foreground whitespace-nowrap shrink-0">{label}</span><strong>{value}</strong></div>;
 }
 
-function NumberInput({ label, value, onChange, min, allowNegative = false }: { label: string; value: number; onChange: (value: number) => void; min?: number; allowNegative?: boolean }) {
-  return <NumberEditor label={label} value={value} onChange={onChange} min={min} allowNegative={allowNegative} triggerClassName="number-field-trigger" />;
+function NumberInput({ label, value, displayValue, status, onChange, min, allowNegative = false, onLabelChange }: { label: string; value: number; displayValue?: number; status?: FieldStatus; onChange: (value: number) => void; min?: number; allowNegative?: boolean; onLabelChange?: (label: string) => void }) {
+  return <NumberEditor label={label} value={value} displayValue={displayValue} status={status} onChange={onChange} min={min} allowNegative={allowNegative} triggerClassName="number-field-trigger" onLabelChange={onLabelChange} />;
 }
 
 function DiceFaceGrid({ result }: { result: DiceResult }) {
@@ -290,27 +361,12 @@ function DiceResultView({ result, compact = false }: { result?: DiceResult; comp
   );
 }
 
-function Collapsible({ title, defaultOpen = false, actions, children }: { title: string; defaultOpen?: boolean; actions?: ReactNode; children: ReactNode }) {
-  const [open, setOpen] = useState(defaultOpen);
-  return (
-    <div className="rounded-md border border-border bg-background/40">
-      <div className="flex items-center justify-between gap-2 px-3 py-2">
-        <button type="button" className="flex flex-1 items-center gap-2 text-sm font-semibold text-foreground" onClick={() => setOpen((value) => !value)}>
-          <span>{title}</span>
-          <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`} />
-        </button>
-        {actions && <div className="flex items-center gap-2">{actions}</div>}
-      </div>
-      {open && <div className="space-y-3 px-3 pb-3 pt-1">{children}</div>}
-    </div>
-  );
-}
-
 function HpPanel({ hp, onHp, onError, defenseDraft, onDefenseDraftChange, onDefense, onDice }: { hp: HpSnapshot; onHp: (hp: HpSnapshot) => void; onError: (error: string) => void; defenseDraft?: DefensePreset; onDefenseDraftChange: (draft: DefensePreset) => void; onDefense: (snapshot: DefenseSnapshot) => void; onDice: (result: DiceResult, source: string) => void }) {
   const [damageAmount, setDamageAmount] = useState(1);
   const [damageType, setDamageType] = useState<(typeof damageTypes)[number]>("严重");
   const [resetOpen, setResetOpen] = useState(false);
   const [longRestOpen, setLongRestOpen] = useState(false);
+  const [customOpen, setCustomOpen] = useState(false);
 
   const run = async (work: () => Promise<HpSnapshot>) => {
     try {
@@ -386,18 +442,25 @@ function HpPanel({ hp, onHp, onError, defenseDraft, onDefenseDraftChange, onDefe
           {parts.every((part) => part.value <= 0) && <div className="flex flex-1 items-center justify-center text-xs text-muted-foreground">暂无生命分段</div>}
         </div>
 
-        <div className="grid grid-cols-[1fr_1fr_auto] gap-2">
-          <NumberInput label="受伤" value={damageAmount} min={1} onChange={setDamageAmount} />
-          <label className="space-y-1.5">
-            <Label>类型</Label>
-            <Select value={damageType} onChange={(event) => setDamageType(event.target.value as (typeof damageTypes)[number])}>
-              {damageTypes.map((type) => <option key={type}>{type}</option>)}
-            </Select>
-          </label>
-          <div className="flex items-end"><Button onClick={applyDamage}>应用</Button></div>
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <button type="button" className="flex h-9 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-sky-400/[0.06] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" onClick={() => setCustomOpen((value) => !value)} aria-expanded={customOpen} aria-label="自定义伤害">
+              <ChevronDown className={`h-4 w-4 transition-transform ${customOpen ? "" : "-rotate-90"}`} />
+            </button>
+            <div className="w-24">
+              <NumberInput label="受伤" value={damageAmount} min={1} onChange={setDamageAmount} />
+            </div>
+            <div className="relative w-28">
+              <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">类型</span>
+              <Select className="pl-12" style={{ paddingLeft: "3rem" }} value={damageType} onChange={(event) => setDamageType(event.target.value as (typeof damageTypes)[number])}>
+                {damageTypes.map((type) => <option key={type}>{type}</option>)}
+              </Select>
+            </div>
+          </div>
+          <Button onClick={applyDamage}>应用</Button>
         </div>
 
-        <CustomDamageSection defenseDraft={defenseDraft} onDefenseDraftChange={onDefenseDraftChange} onDefense={onDefense} onDice={onDice} onError={onError} onResolved={(amount, type) => { setDamageAmount(amount); setDamageType(type); }} />
+        <CustomDamageSection open={customOpen} defenseDraft={defenseDraft} onDefenseDraftChange={onDefenseDraftChange} onDefense={onDefense} onDice={onDice} onError={onError} onResolved={(amount, type) => { setDamageAmount(amount); setDamageType(type); }} />
 
         <div className="grid grid-cols-3 gap-2">
           <Button variant="secondary" onClick={shortRest}><Coffee className="h-4 w-4" />短休</Button>
@@ -496,9 +559,23 @@ function DefensePanel({ snapshot, draft, onDraftChange, onDefense, onError }: { 
 
   const renderFields = (fields: typeof numberFields) => (
     <div className="grid grid-cols-3 gap-2">
-      {fields.map((field) => (
-        <NumberInput key={String(field.key)} label={field.label} value={asNumber(draft[field.key])} allowNegative={field.key === "defenseBonusSuccess"} onChange={(value) => updateNumber(field.key, value)} />
-      ))}
+      {fields.map((field) => {
+        const labelKey = field.editableLabelKey;
+        const label = labelKey ? draft[labelKey] || field.label : field.label;
+        const st = fieldState(draft, field.key);
+        return (
+          <NumberInput
+            key={String(field.key)}
+            label={label}
+            value={asNumber(draft[field.key])}
+            displayValue={st.effective}
+            status={st.status}
+            allowNegative={field.key === "defenseBonusSuccess"}
+            onChange={(value) => updateNumber(field.key, value)}
+            onLabelChange={labelKey ? (next) => update(labelKey, next) : undefined}
+          />
+        );
+      })}
     </div>
   );
 
@@ -514,11 +591,6 @@ function DefensePanel({ snapshot, draft, onDraftChange, onDefense, onError }: { 
           <StatPill label="破甲防御" value={preview.armor} tone="warn" />
           <StatPill label="破魔防御" value={preview.magic} tone="good" />
         </div>
-        <div className="grid grid-cols-3 gap-2 text-xs text-muted-foreground">
-          <div>基础 {draft.base}{preview.effective.base !== draft.base ? ` -> ${preview.effective.base}` : ""}</div>
-          <div>闪避 {draft.dodge}{preview.effective.dodge !== draft.dodge ? ` -> ${preview.effective.dodge}` : ""}</div>
-          <div>格挡 {draft.block}{preview.effective.block !== draft.block ? ` -> ${preview.effective.block}` : ""}</div>
-        </div>
 
         <div className="flex flex-wrap gap-2">
           <Checkbox label="格挡中" checked={draft.blocking} onChange={(event) => update("blocking", event.target.checked)} />
@@ -527,22 +599,25 @@ function DefensePanel({ snapshot, draft, onDraftChange, onDefense, onError }: { 
         </div>
 
         <section className="space-y-2">
-          <div className="section-label">抵高速</div>
+          <div className="section-label">高速防御</div>
           {renderFields(groups.speed)}
         </section>
         <section className="space-y-2">
-          <div className="section-label">抵破甲</div>
+          <div className="section-label">破甲防御</div>
           {renderFields(groups.armor)}
         </section>
         <section className="space-y-2">
-          <div className="section-label">抵破魔 / 其他</div>
+          <div className="section-label">破魔防御</div>
           {renderFields([...groups.magic, ...groups.other])}
         </section>
         <section className="space-y-2">
           <div className="section-label">完美防御</div>
-          <div className="grid grid-cols-3 gap-2 items-end">
+          <div className="grid grid-cols-3 items-center gap-2">
             <NumberInput label="完美防御" value={asNumber(draft.perfectDefense)} onChange={(value) => updateNumber("perfectDefense", value)} />
-            <Checkbox label="生效" checked={draft.perfectDefenseActive} onChange={(event) => update("perfectDefenseActive", event.target.checked)} />
+            <label className="flex cursor-pointer items-center gap-1.5 whitespace-nowrap">
+              <span className="text-xs text-muted-foreground">生效</span>
+              <Switch checked={draft.perfectDefenseActive} onCheckedChange={(checked) => update("perfectDefenseActive", checked)} />
+            </label>
           </div>
         </section>
         <section className="space-y-2">
@@ -570,8 +645,8 @@ function DefensePanel({ snapshot, draft, onDraftChange, onDefense, onError }: { 
         <section className="space-y-2">
           <div className="section-label">特性</div>
           <div className="flex gap-2">
-            <Input value={traitText} onChange={(event) => setTraitText(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") addTrait(); }} placeholder="输入特性" />
-            <Button variant="secondary" onClick={addTrait}>添加</Button>
+            <Input className="min-w-0 flex-1" value={traitText} onChange={(event) => setTraitText(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") addTrait(); }} placeholder="输入特性" />
+            <Button variant="secondary" className="shrink-0 whitespace-nowrap" onClick={addTrait}>添加</Button>
           </div>
           <div className="flex flex-wrap gap-2">
             {(draft.traits ?? []).map((trait, index) => (
@@ -612,7 +687,7 @@ function DicePanel({ result, onDice, onError }: { result?: DiceResult; onDice: (
         <Button size="sm" onClick={() => roll()}>投掷</Button>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-[1fr_1fr_96px] gap-2">
+        <div className="grid grid-cols-[1fr_1fr_96px] items-end gap-2">
           <NumberInput label="DP" value={dp} allowNegative onChange={setDp} />
           <NumberInput label="附加成功" value={bonus} allowNegative onChange={setBonus} />
           <label className="space-y-1.5">
@@ -655,7 +730,7 @@ function SavesPanel({ onDice, onError }: { onDice: (result: DiceResult, source: 
           <div key={kind} className="grid grid-cols-[48px_1fr_1fr_auto_64px] items-end gap-2">
             <div className="pb-2 text-sm font-semibold text-sky-300">{label}</div>
             <NumberInput label="DP" value={saves[kind].dp} allowNegative onChange={(value) => setSaves((prev) => ({ ...prev, [kind]: { ...prev[kind], dp: value } }))} />
-            <NumberInput label="附加" value={saves[kind].bonus} allowNegative onChange={(value) => setSaves((prev) => ({ ...prev, [kind]: { ...prev[kind], bonus: value } }))} />
+            <NumberInput label="附加成功" value={saves[kind].bonus} allowNegative onChange={(value) => setSaves((prev) => ({ ...prev, [kind]: { ...prev[kind], bonus: value } }))} />
             <Button variant="secondary" onClick={() => rollSave(kind, label)}>检定</Button>
             <div className="pb-2 text-right text-sm font-bold text-sky-300">{saves[kind].out}</div>
           </div>
@@ -665,7 +740,7 @@ function SavesPanel({ onDice, onError }: { onDice: (result: DiceResult, source: 
   );
 }
 
-function CustomDamageSection({ defenseDraft, onDefenseDraftChange, onDefense, onDice, onError, onResolved }: { defenseDraft?: DefensePreset; onDefenseDraftChange: (draft: DefensePreset) => void; onDefense: (snapshot: DefenseSnapshot) => void; onDice: (result: DiceResult, source: string) => void; onError: (error: string) => void; onResolved?: (amount: number, type: (typeof damageTypes)[number]) => void }) {
+function CustomDamageSection({ open, defenseDraft, onDefenseDraftChange, onDefense, onDice, onError, onResolved }: { open: boolean; defenseDraft?: DefensePreset; onDefenseDraftChange: (draft: DefensePreset) => void; onDefense: (snapshot: DefenseSnapshot) => void; onDice: (result: DiceResult, source: string) => void; onError: (error: string) => void; onResolved?: (amount: number, type: (typeof damageTypes)[number]) => void }) {
   const [form, setForm] = useState<AttackForm>(defaultAttackForm);
   const [result, setResult] = useState<AttackResult>();
 
@@ -717,8 +792,13 @@ function CustomDamageSection({ defenseDraft, onDefenseDraftChange, onDefense, on
 
   const pools = result?.pools;
 
+  if (!open) return null;
   return (
-    <Collapsible title="自定义伤害" actions={<><Button size="sm" variant="secondary" onClick={resetAttack}><RotateCcw className="h-4 w-4" />重置</Button><Button size="sm" onClick={resolve}>结算</Button></>}>
+    <div className="space-y-3 rounded-md border border-border bg-background/40 px-3 pb-3 pt-1">
+        <div className="flex justify-end gap-2">
+          <Button size="sm" variant="secondary" onClick={resetAttack}><RotateCcw className="h-4 w-4" />重置</Button>
+          <Button size="sm" onClick={resolve}>结算</Button>
+        </div>
         <div className="grid grid-cols-3 gap-2">
           <NumberInput label="攻击 DP" value={form.attackDP} allowNegative onChange={(value) => update("attackDP", value)} />
           <NumberInput label="高速" value={form.speed} onChange={(value) => update("speed", value)} />
@@ -788,7 +868,7 @@ function CustomDamageSection({ defenseDraft, onDefenseDraftChange, onDefense, on
             )}
           </div>
         ) : <div className="rounded-md border border-dashed border-border bg-background/50 px-3 py-4 text-sm text-muted-foreground">暂无结算</div>}
-    </Collapsible>
+    </div>
   );
 }
 
