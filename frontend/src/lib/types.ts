@@ -6,6 +6,7 @@ export interface HpSnapshot {
   a: number;
   total: number;
   status: string;
+  statusKey: "unset" | "over" | "dead" | "dazed" | "ok";
   log: string[];
 }
 

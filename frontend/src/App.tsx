@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { Activity, AlertTriangle, BookOpen, ChevronDown, Dices, HeartPulse, Minus, Plus, RotateCcw, Shield, Sparkles, Swords, Target, Trash2, X } from "lucide-react";
+import { useEffect, useState, type ReactNode } from "react";
+import { AlertTriangle, CheckCircle2, ChevronDown, CircleSlash, Coffee, Dices, EyeOff, HeartPulse, Minus, Moon, Plus, RotateCcw, Shield, Skull, Trash2, X } from "lucide-react";
 import { getJson, postJson } from "./lib/api";
 import { toInt } from "./lib/utils";
 import type {
@@ -24,6 +24,14 @@ const combatDamageKinds = [
   { value: "mixed", label: "混合伤害" },
 ] as const;
 const explodeOptions = [10, 9, 8];
+
+const hpStatusMeta: Record<string, { icon: typeof HeartPulse; tone: string }> = {
+  ok: { icon: CheckCircle2, tone: "text-emerald-300" },
+  dazed: { icon: EyeOff, tone: "text-amber-300" },
+  dead: { icon: Skull, tone: "text-rose-300" },
+  over: { icon: AlertTriangle, tone: "text-amber-300" },
+  unset: { icon: CircleSlash, tone: "text-muted-foreground" },
+};
 
 type CombatDamageKind = (typeof combatDamageKinds)[number]["value"];
 type AttackForm = {
@@ -58,10 +66,11 @@ const emptyHp: HpSnapshot = {
   a: 0,
   total: 0,
   status: "加载中",
+  statusKey: "unset",
   log: [],
 };
 
-const numberFields: Array<{ key: keyof DefensePreset; label: string; group: "speed" | "armor" | "magic" | "damage" | "other" }> = [
+const numberFields: Array<{ key: keyof DefensePreset; label: string; group: "speed" | "armor" | "magic" | "perfect" | "absorb" | "other" }> = [
   { key: "base", label: "基础", group: "speed" },
   { key: "dodge", label: "闪避", group: "speed" },
   { key: "block", label: "格挡", group: "speed" },
@@ -74,11 +83,11 @@ const numberFields: Array<{ key: keyof DefensePreset; label: string; group: "spe
   { key: "coverBonus", label: "掩蔽", group: "magic" },
   { key: "other2", label: "其他1", group: "other" },
   { key: "other3", label: "其他2", group: "other" },
-  { key: "perfectDefense", label: "完美防御", group: "damage" },
-  { key: "defenseBonusSuccess", label: "防御附加", group: "damage" },
-  { key: "damageAbsorb", label: "伤害吸收", group: "damage" },
-  { key: "drValue", label: "DR", group: "damage" },
-  { key: "erValue", label: "ER", group: "damage" },
+  { key: "perfectDefense", label: "完美防御", group: "perfect" },
+  { key: "defenseBonusSuccess", label: "防御附加", group: "absorb" },
+  { key: "damageAbsorb", label: "伤害吸收", group: "absorb" },
+  { key: "drValue", label: "DR", group: "absorb" },
+  { key: "erValue", label: "ER", group: "absorb" },
 ];
 
 function asNumber(value: unknown) {
@@ -281,7 +290,23 @@ function DiceResultView({ result, compact = false }: { result?: DiceResult; comp
   );
 }
 
-function HpPanel({ hp, onHp, onError }: { hp: HpSnapshot; onHp: (hp: HpSnapshot) => void; onError: (error: string) => void }) {
+function Collapsible({ title, defaultOpen = false, actions, children }: { title: string; defaultOpen?: boolean; actions?: ReactNode; children: ReactNode }) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="rounded-md border border-border bg-background/40">
+      <div className="flex items-center justify-between gap-2 px-3 py-2">
+        <button type="button" className="flex flex-1 items-center gap-2 text-sm font-semibold text-foreground" onClick={() => setOpen((value) => !value)}>
+          <span>{title}</span>
+          <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`} />
+        </button>
+        {actions && <div className="flex items-center gap-2">{actions}</div>}
+      </div>
+      {open && <div className="space-y-3 px-3 pb-3 pt-1">{children}</div>}
+    </div>
+  );
+}
+
+function HpPanel({ hp, onHp, onError, defenseDraft, onDefenseDraftChange, onDefense, onDice }: { hp: HpSnapshot; onHp: (hp: HpSnapshot) => void; onError: (error: string) => void; defenseDraft?: DefensePreset; onDefenseDraftChange: (draft: DefensePreset) => void; onDefense: (snapshot: DefenseSnapshot) => void; onDice: (result: DiceResult, source: string) => void }) {
   const [damageAmount, setDamageAmount] = useState(1);
   const [damageType, setDamageType] = useState<(typeof damageTypes)[number]>("严重");
   const [resetOpen, setResetOpen] = useState(false);
@@ -326,6 +351,8 @@ function HpPanel({ hp, onHp, onError }: { hp: HpSnapshot; onHp: (hp: HpSnapshot)
   };
 
   const max = Math.max(hp.max, 1);
+  const statusMeta = hpStatusMeta[hp.statusKey] ?? hpStatusMeta.unset;
+  const StatusIcon = statusMeta.icon;
   const parts = [
     { label: "完好", value: Math.max(hp.intact, 0), cls: "bg-emerald-400", tone: "text-emerald-300" },
     { label: "冲击", value: hp.b, cls: "bg-sky-400", tone: "text-sky-300" },
@@ -337,7 +364,7 @@ function HpPanel({ hp, onHp, onError }: { hp: HpSnapshot; onHp: (hp: HpSnapshot)
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2"><HeartPulse className="h-4 w-4" />血量</CardTitle>
-        <div className="text-sm font-semibold text-foreground">{hp.status}</div>
+        <div className={`flex items-center gap-1.5 text-sm font-semibold ${statusMeta.tone}`}><StatusIcon className="h-4 w-4" />{hp.status}</div>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid grid-cols-5 gap-2">
@@ -370,9 +397,11 @@ function HpPanel({ hp, onHp, onError }: { hp: HpSnapshot; onHp: (hp: HpSnapshot)
           <div className="flex items-end"><Button onClick={applyDamage}>应用</Button></div>
         </div>
 
+        <CustomDamageSection defenseDraft={defenseDraft} onDefenseDraftChange={onDefenseDraftChange} onDefense={onDefense} onDice={onDice} onError={onError} onResolved={(amount, type) => { setDamageAmount(amount); setDamageType(type); }} />
+
         <div className="grid grid-cols-3 gap-2">
-          <Button variant="secondary" onClick={shortRest}>短休</Button>
-          <Button variant="secondary" onClick={longRest}>长休</Button>
+          <Button variant="secondary" onClick={shortRest}><Coffee className="h-4 w-4" />短休</Button>
+          <Button variant="secondary" onClick={longRest}><Moon className="h-4 w-4" />长休</Button>
           <Button variant="destructive" onClick={() => setResetOpen(true)}><RotateCcw className="h-4 w-4" />重置</Button>
         </div>
 
@@ -380,6 +409,7 @@ function HpPanel({ hp, onHp, onError }: { hp: HpSnapshot; onHp: (hp: HpSnapshot)
       {longRestOpen && (
         <div className="number-editor-backdrop" role="presentation" onMouseDown={() => setLongRestOpen(false)}>
           <section className="long-rest-dialog" role="dialog" aria-modal="true" aria-labelledby="long-rest-title" onMouseDown={(event) => event.stopPropagation()}>
+            <div className="long-rest-dialog-icon"><Moon className="h-6 w-6" /></div>
             <div className="eyebrow">长休选择</div>
             <h3 id="long-rest-title" className="font-display mt-1 text-2xl font-semibold">选择恢复方式</h3>
             <div className="mt-5 grid grid-cols-2 gap-3">
@@ -459,7 +489,8 @@ function DefensePanel({ snapshot, draft, onDraftChange, onDefense, onError }: { 
     speed: numberFields.filter((field) => field.group === "speed"),
     armor: numberFields.filter((field) => field.group === "armor"),
     magic: numberFields.filter((field) => field.group === "magic"),
-    damage: numberFields.filter((field) => field.group === "damage"),
+    perfect: numberFields.filter((field) => field.group === "perfect"),
+    absorb: numberFields.filter((field) => field.group === "absorb"),
     other: numberFields.filter((field) => field.group === "other"),
   };
 
@@ -493,7 +524,6 @@ function DefensePanel({ snapshot, draft, onDraftChange, onDefense, onError }: { 
           <Checkbox label="格挡中" checked={draft.blocking} onChange={(event) => update("blocking", event.target.checked)} />
           <Checkbox label="全力防御" checked={draft.fullDefense} onChange={(event) => update("fullDefense", event.target.checked)} />
           <Checkbox label="掩蔽" checked={draft.cover} onChange={(event) => update("cover", event.target.checked)} />
-          <Checkbox label="完美防御生效" checked={draft.perfectDefenseActive} onChange={(event) => update("perfectDefenseActive", event.target.checked)} />
         </div>
 
         <section className="space-y-2">
@@ -509,8 +539,15 @@ function DefensePanel({ snapshot, draft, onDraftChange, onDefense, onError }: { 
           {renderFields([...groups.magic, ...groups.other])}
         </section>
         <section className="space-y-2">
-          <div className="section-label">伤害相关</div>
-          {renderFields(groups.damage)}
+          <div className="section-label">完美防御</div>
+          <div className="grid grid-cols-3 gap-2 items-end">
+            <NumberInput label="完美防御" value={asNumber(draft.perfectDefense)} onChange={(value) => updateNumber("perfectDefense", value)} />
+            <Checkbox label="生效" checked={draft.perfectDefenseActive} onChange={(event) => update("perfectDefenseActive", event.target.checked)} />
+          </div>
+        </section>
+        <section className="space-y-2">
+          <div className="section-label">伤害吸收 / 减免</div>
+          {renderFields(groups.absorb)}
           <div className="grid grid-cols-3 gap-2">
             <label className="space-y-1.5">
               <Label>吸收类型</Label>
@@ -557,7 +594,6 @@ function DicePanel({ result, onDice, onError }: { result?: DiceResult; onDice: (
   const [dp, setDp] = useState(5);
   const [bonus, setBonus] = useState(0);
   const [explodeOn, setExplodeOn] = useState(10);
-  const [saves, setSaves] = useState({ fort: { dp: 5, bonus: 0, out: "-" }, ref: { dp: 5, bonus: 0, out: "-" }, will: { dp: 5, bonus: 0, out: "-" } });
 
   const roll = async (source = "掷骰", rollDp = dp, rollBonus = bonus, rollExplode = explodeOn) => {
     try {
@@ -569,16 +605,10 @@ function DicePanel({ result, onDice, onError }: { result?: DiceResult; onDice: (
     }
   };
 
-  const rollSave = async (kind: keyof typeof saves, label: string) => {
-    const next = await roll(`${label}豁免`, saves[kind].dp, saves[kind].bonus, 10);
-    if (!next) return;
-    setSaves((prev) => ({ ...prev, [kind]: { ...prev[kind], out: next.criticalFailure ? "大失败" : String(next.finalSuccess) } }));
-  };
-
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2"><Dices className="h-4 w-4" />掷骰 / 豁免</CardTitle>
+        <CardTitle className="flex items-center gap-2"><Dices className="h-4 w-4" />掷骰</CardTitle>
         <Button size="sm" onClick={() => roll()}>投掷</Button>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -593,28 +623,49 @@ function DicePanel({ result, onDice, onError }: { result?: DiceResult; onDice: (
           </label>
         </div>
         <DiceResultView result={result} />
-        <div className="space-y-2">
-          <div className="section-label">三豁免</div>
-          {([
-            ["fort", "强韧"],
-            ["ref", "反射"],
-            ["will", "意志"],
-          ] as const).map(([kind, label]) => (
-            <div key={kind} className="grid grid-cols-[48px_1fr_1fr_auto_64px] items-end gap-2">
-              <div className="pb-2 text-sm font-semibold text-sky-300">{label}</div>
-              <NumberInput label="DP" value={saves[kind].dp} allowNegative onChange={(value) => setSaves((prev) => ({ ...prev, [kind]: { ...prev[kind], dp: value } }))} />
-              <NumberInput label="附加" value={saves[kind].bonus} allowNegative onChange={(value) => setSaves((prev) => ({ ...prev, [kind]: { ...prev[kind], bonus: value } }))} />
-              <Button variant="secondary" onClick={() => rollSave(kind, label)}>检定</Button>
-              <div className="pb-2 text-right text-sm font-bold text-sky-300">{saves[kind].out}</div>
-            </div>
-          ))}
-        </div>
       </CardContent>
     </Card>
   );
 }
 
-function AttackPanel({ defenseDraft, onDefenseDraftChange, onDefense, onDice, onError }: { defenseDraft?: DefensePreset; onDefenseDraftChange: (draft: DefensePreset) => void; onDefense: (snapshot: DefenseSnapshot) => void; onDice: (result: DiceResult, source: string) => void; onError: (error: string) => void }) {
+function SavesPanel({ onDice, onError }: { onDice: (result: DiceResult, source: string) => void; onError: (error: string) => void }) {
+  const [saves, setSaves] = useState({ fort: { dp: 5, bonus: 0, out: "-" }, ref: { dp: 5, bonus: 0, out: "-" }, will: { dp: 5, bonus: 0, out: "-" } });
+
+  const rollSave = async (kind: keyof typeof saves, label: string) => {
+    try {
+      const next = await postJson<DiceResult>("/api/dice/roll", { dp: saves[kind].dp, explodeOn: 10, bonus: saves[kind].bonus });
+      onDice(next, `${label}豁免`);
+      setSaves((prev) => ({ ...prev, [kind]: { ...prev[kind], out: next.criticalFailure ? "大失败" : String(next.finalSuccess) } }));
+    } catch (error) {
+      onError(error instanceof Error ? error.message : String(error));
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2"><Shield className="h-4 w-4" />三豁免</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        {([
+          ["fort", "强韧"],
+          ["ref", "反射"],
+          ["will", "意志"],
+        ] as const).map(([kind, label]) => (
+          <div key={kind} className="grid grid-cols-[48px_1fr_1fr_auto_64px] items-end gap-2">
+            <div className="pb-2 text-sm font-semibold text-sky-300">{label}</div>
+            <NumberInput label="DP" value={saves[kind].dp} allowNegative onChange={(value) => setSaves((prev) => ({ ...prev, [kind]: { ...prev[kind], dp: value } }))} />
+            <NumberInput label="附加" value={saves[kind].bonus} allowNegative onChange={(value) => setSaves((prev) => ({ ...prev, [kind]: { ...prev[kind], bonus: value } }))} />
+            <Button variant="secondary" onClick={() => rollSave(kind, label)}>检定</Button>
+            <div className="pb-2 text-right text-sm font-bold text-sky-300">{saves[kind].out}</div>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  );
+}
+
+function CustomDamageSection({ defenseDraft, onDefenseDraftChange, onDefense, onDice, onError, onResolved }: { defenseDraft?: DefensePreset; onDefenseDraftChange: (draft: DefensePreset) => void; onDefense: (snapshot: DefenseSnapshot) => void; onDice: (result: DiceResult, source: string) => void; onError: (error: string) => void; onResolved?: (amount: number, type: (typeof damageTypes)[number]) => void }) {
   const [form, setForm] = useState<AttackForm>(defaultAttackForm);
   const [result, setResult] = useState<AttackResult>();
 
@@ -658,6 +709,7 @@ function AttackPanel({ defenseDraft, onDefenseDraftChange, onDefense, onDice, on
       });
       setResult(next);
       if (next.roll) onDice(next.roll, "伤害");
+      if (!next.miss && onResolved) onResolved(next.finalDamage, form.woundType);
     } catch (error) {
       onError(error instanceof Error ? error.message : String(error));
     }
@@ -666,15 +718,7 @@ function AttackPanel({ defenseDraft, onDefenseDraftChange, onDefense, onDice, on
   const pools = result?.pools;
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2"><Swords className="h-4 w-4" />攻击结算</CardTitle>
-        <div className="flex gap-2">
-          <Button size="sm" variant="secondary" onClick={resetAttack}><RotateCcw className="h-4 w-4" />重置</Button>
-          <Button size="sm" onClick={resolve}>结算</Button>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
+    <Collapsible title="自定义伤害" actions={<><Button size="sm" variant="secondary" onClick={resetAttack}><RotateCcw className="h-4 w-4" />重置</Button><Button size="sm" onClick={resolve}>结算</Button></>}>
         <div className="grid grid-cols-3 gap-2">
           <NumberInput label="攻击 DP" value={form.attackDP} allowNegative onChange={(value) => update("attackDP", value)} />
           <NumberInput label="高速" value={form.speed} onChange={(value) => update("speed", value)} />
@@ -744,8 +788,7 @@ function AttackPanel({ defenseDraft, onDefenseDraftChange, onDefense, onDice, on
             )}
           </div>
         ) : <div className="rounded-md border border-dashed border-border bg-background/50 px-3 py-4 text-sm text-muted-foreground">暂无结算</div>}
-      </CardContent>
-    </Card>
+    </Collapsible>
   );
 }
 
@@ -756,7 +799,6 @@ export default function App() {
   const [error, setError] = useState("");
   const [diceLog, setDiceLog] = useState<Array<{ source: string; result: DiceResult }>>([]);
   const [latestDiceResult, setLatestDiceResult] = useState<DiceResult>();
-  const [activeSection, setActiveSection] = useState("overview");
 
   useEffect(() => {
     void (async () => {
@@ -781,64 +823,13 @@ export default function App() {
 
   const pushDice = (result: DiceResult, source: string) => {
     setLatestDiceResult(result);
-    setDiceLog((prev) => [{ result, source }, ...prev].slice(0, 12));
-  };
-
-  const defenseTotal = useMemo(() => {
-    if (!defense) return 0;
-    return defense.totals.speedPoolMelee + (defense.touchAttack ? 0 : defense.totals.armorPoolMelee) + defense.totals.magicPool + defense.totals.otherPool;
-  }, [defense]);
-
-  const sections = [
-    { id: "overview", label: "总览", icon: Sparkles },
-    { id: "vitality", label: "生命状态", icon: HeartPulse },
-    { id: "defense", label: "防御预设", icon: Shield },
-    { id: "dice", label: "检定与骰子", icon: Dices },
-    { id: "attack", label: "攻击结算", icon: Target },
-  ];
-
-  const moveTo = (id: string) => {
-    setActiveSection(id);
-    document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    setDiceLog((prev) => [{ result, source }, ...prev].slice(0, 30));
   };
 
   return (
     <main className="min-h-screen bg-background text-foreground">
-      <div className="app-shell mx-auto max-w-[1560px] px-4 py-4 lg:px-6 lg:py-6">
-        <aside className="app-sidebar">
-          <div className="mb-7 flex items-center gap-3 px-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-sky-300/30 bg-sky-400/10 text-sky-200 shadow-[0_0_26px_rgba(56,189,248,0.15)]"><Sparkles className="h-5 w-5" /></div>
-            <div>
-              <div className="font-display text-lg font-semibold leading-none text-foreground">无限规则</div>
-              <div className="mt-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-sky-300/75">Rule engine</div>
-            </div>
-          </div>
-          <nav className="space-y-1" aria-label="规则模块">
-            {sections.map(({ id, label, icon: Icon }) => (
-              <button key={id} className={`nav-item ${activeSection === id ? "nav-item-active" : ""}`} onClick={() => moveTo(id)}>
-                <Icon className="h-4 w-4" />{label}
-              </button>
-            ))}
-          </nav>
-          <div className="mt-auto hidden rounded-xl border border-border/70 bg-background/40 p-3 text-xs text-muted-foreground lg:block">
-            <div className="mb-1 flex items-center gap-1.5 text-sky-200"><BookOpen className="h-3.5 w-3.5" />使用提示</div>
-            所有计算仅保存在当前浏览器会话中。
-          </div>
-        </aside>
-
-        <div className="min-w-0">
-          <header id="overview" className="hero-header mb-5 scroll-mt-5">
-            <div>
-              <div className="eyebrow">TRPG · 规则辅助工具</div>
-              <h1 className="font-display mt-1 text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">无限规则计算器</h1>
-              <p className="mt-2 text-sm text-muted-foreground">把复杂的战斗数字，变成清晰的桌面决策。</p>
-            </div>
-            <div className="status-orb">
-              <Activity className="h-4 w-4 text-emerald-300" />
-              <span>当前防御</span><strong>{defenseTotal}</strong>
-            </div>
-          </header>
-
+      <div className="mx-auto max-w-[1560px] px-4 py-4 lg:px-6 lg:py-6">
+        <div className="min-w-0 content-wrap">
         {error && (
           <div className="mb-4 flex items-center justify-between rounded-lg border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
             <span>{error}</span>
@@ -846,28 +837,33 @@ export default function App() {
           </div>
         )}
 
-        <div className="grid gap-5 2xl:grid-cols-[minmax(290px,0.9fr)_minmax(430px,1.18fr)_minmax(290px,0.9fr)]">
+        <div className="main-grid">
           <div className="space-y-4">
-            <section id="vitality" className="scroll-mt-5"><HpPanel hp={hp} onHp={setHp} onError={setError} /></section>
-            <section id="attack" className="scroll-mt-5"><AttackPanel defenseDraft={defenseDraft} onDefenseDraftChange={setDefenseDraft} onDefense={updateDefenseSnapshot} onDice={pushDice} onError={setError} /></section>
+            <section id="vitality" className="scroll-mt-5"><HpPanel hp={hp} onHp={setHp} onError={setError} defenseDraft={defenseDraft} onDefenseDraftChange={setDefenseDraft} onDefense={updateDefenseSnapshot} onDice={pushDice} /></section>
+            <section className="scroll-mt-5"><SavesPanel onDice={pushDice} onError={setError} /></section>
           </div>
           <section id="defense" className="scroll-mt-5"><DefensePanel snapshot={defense} draft={defenseDraft} onDraftChange={setDefenseDraft} onDefense={updateDefenseSnapshot} onError={setError} /></section>
           <div className="space-y-4">
             <section id="dice" className="scroll-mt-5"><DicePanel result={latestDiceResult} onDice={pushDice} onError={setError} /></section>
             <Card>
               <CardHeader><CardTitle>骰子记录</CardTitle></CardHeader>
-              <CardContent className="space-y-2">
+              <CardContent>
+                <div className="max-h-[420px] space-y-2 overflow-y-auto pr-1">
                 {diceLog.length ? diceLog.map((entry, index) => (
                   <div key={`${entry.source}-${index}`} className="rounded-md border border-border bg-background/60 p-2">
                     <div className="mb-1 text-xs text-sky-300">[{entry.source}] 成功 {entry.result.criticalFailure ? "大失败" : entry.result.finalSuccess}</div>
                     <div className="break-words font-mono text-xs text-muted-foreground">{formatDiceFaces(entry.result)}</div>
                   </div>
                 )) : <div className="text-sm text-muted-foreground">暂无记录</div>}
+                </div>
               </CardContent>
             </Card>
           </div>
         </div>
         </div>
+        <footer className="mt-6 text-center text-xs text-muted-foreground">
+          Powered by Dusting
+        </footer>
       </div>
     </main>
   );

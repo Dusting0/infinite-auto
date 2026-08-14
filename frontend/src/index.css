@@ -69,14 +69,12 @@
   }
 
   .font-display { font-family: Georgia, "Times New Roman", "Songti SC", serif; }
-  .app-shell { @apply lg:grid lg:grid-cols-[218px_minmax(0,1fr)] lg:gap-7; }
-  .app-sidebar { @apply mb-5 flex rounded-2xl border border-border/80 bg-card/60 p-2 shadow-2xl shadow-black/10 backdrop-blur-sm lg:sticky lg:top-6 lg:mb-0 lg:h-[calc(100vh-3rem)] lg:flex-col lg:p-4; }
-  .nav-item { @apply inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-sky-400/10 hover:text-sky-100 lg:flex lg:w-full; }
-  .nav-item-active { @apply bg-sky-400/15 text-sky-100 shadow-sm ring-1 ring-inset ring-sky-300/20; }
-  .hero-header { @apply flex flex-wrap items-end justify-between gap-4 rounded-2xl border border-border/60 bg-card/45 px-5 py-5 shadow-xl shadow-black/5 backdrop-blur-sm sm:px-6; }
+  /* Layout responds to the content container's own width, not the viewport,
+     so the browser's vertical/side tab strip (which steals ~200px of viewport
+     width) no longer collapses the grid spuriously. */
+  .content-wrap { container-type: inline-size; container-name: content; }
+  .main-grid { @apply grid gap-5; }
   .eyebrow { @apply text-[10px] font-bold uppercase tracking-[0.22em] text-sky-300; }
-  .status-orb { @apply flex items-center gap-2 rounded-xl border border-emerald-400/15 bg-emerald-400/5 px-3 py-2 text-sm text-muted-foreground; }
-  .status-orb strong { @apply text-xl font-semibold tabular-nums text-emerald-300; }
   .stat-pill { @apply flex min-h-[76px] flex-col rounded-xl border border-border bg-background/70 px-3 py-2.5 text-left; }
   .stat-pill-editable { @apply cursor-pointer transition-all duration-150 hover:-translate-y-0.5 hover:border-sky-300/50 hover:bg-sky-400/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring; }
   .stat-pill-editable strong { color: inherit; }
@@ -90,10 +88,22 @@
   .icon-dismiss { @apply flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-background text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground; }
   .reset-dialog { @apply w-full max-w-md rounded-2xl border border-rose-400/25 bg-card p-6 shadow-2xl shadow-black/50; }
   .reset-dialog-icon { @apply mb-4 flex h-12 w-12 items-center justify-center rounded-2xl border border-rose-300/25 bg-rose-500/15 text-rose-300; }
+  .long-rest-dialog { @apply w-full max-w-md rounded-2xl border border-sky-300/20 bg-card p-6 shadow-2xl shadow-black/50; }
+  .long-rest-dialog-icon { @apply mb-4 flex h-12 w-12 items-center justify-center rounded-2xl border border-sky-300/25 bg-sky-400/15 text-sky-300; }
+  .long-rest-option { @apply flex flex-col items-start gap-1 rounded-xl border border-border bg-background/70 p-4 text-left transition-all hover:-translate-y-0.5 hover:border-sky-300/50 hover:bg-sky-400/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring; }
+  .long-rest-option span { @apply text-xs text-muted-foreground; }
+  .long-rest-option strong { @apply text-sm font-semibold text-sky-200; }
   .combat-select { @apply h-11 appearance-none rounded-xl border-sky-300/20 bg-sky-400/[0.06] pr-10 font-semibold text-sky-100 shadow-inner shadow-sky-950/20 transition-all hover:border-sky-300/50 hover:bg-sky-400/[0.12] focus:border-sky-300; }
   .combat-select-danger { @apply border-rose-300/20 bg-rose-400/[0.06] text-rose-100 hover:border-rose-300/50 hover:bg-rose-400/[0.12] focus:border-rose-300; }
   .combat-select-icon { @apply pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-sky-300; }
   .combat-select-danger + .combat-select-icon { @apply text-rose-300; }
+}
+
+/* Main 3-column grid activates on the content area's own width, not the
+   viewport. Old threshold was 2xl:1536 (viewport); 1100 (container) keeps
+   three columns even after a vertical tab strip shrinks the page. */
+@container content (min-width: 1100px) {
+  .main-grid { grid-template-columns: minmax(290px, 0.9fr) minmax(430px, 1.18fr) minmax(290px, 0.9fr); }
 }
 
 @media (max-width: 640px) {
@@ -105,7 +115,4 @@
   .grid-cols-\[48px_1fr_1fr_auto_64px\] {
     grid-template-columns: 1fr;
   }
-
-  .app-sidebar { overflow-x: auto; }
-  .app-sidebar > :last-child { display: none; }
 }

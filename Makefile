@@ -1,58 +1,36 @@
 APP_NAME ?= infinite-calc
 OUT_DIR ?= ./output
-OS ?= macos
 ARCH ?= $(shell go env GOHOSTARCH)
-
-GOFLAGS ?= -ldflags="-s -w"
-CGO_ENABLED ?= 0
 NPM ?= npm
+AIR ?= $(shell go env GOPATH)/bin/air
 
-.PHONY: help frontend-install frontend-build build build-go macos windows all clean
+.PHONY: help dev build clean
 
 help:
 	@printf '%s\n' 'Usage:'
-	@printf '%s\n' '  make frontend-build'
-	@printf '%s\n' '  make build OS=macos [ARCH=amd64|arm64]'
-	@printf '%s\n' '  make build OS=windows [ARCH=amd64|arm64]'
-	@printf '%s\n' '  make macos'
-	@printf '%s\n' '  make windows'
-	@printf '%s\n' '  make all'
+	@printf '%s\n' '  make dev      开发模式：前端 HMR + 后端 air 热重载'
+	@printf '%s\n' '  make build    构建发布产物（前端 + macOS/Windows 二进制到 output/）'
+	@printf '%s\n' '  make clean    清理产物与临时文件'
 	@printf '%s\n' ''
 	@printf '%s\n' 'Options:'
-	@printf '%s\n' '  APP_NAME  Binary name prefix, default: infinite-calc'
-	@printf '%s\n' '  OUT_DIR   Output directory, default: ./output'
-	@printf '%s\n' '  OS        Target OS: macos or windows'
-	@printf '%s\n' '  ARCH      Target architecture, default: host architecture'
+	@printf '%s\n' '  APP_NAME  二进制名前缀，默认: infinite-calc'
+	@printf '%s\n' '  OUT_DIR   产物目录，默认: ./output'
+	@printf '%s\n' '  ARCH      目标架构，默认: 本机架构'
 
-frontend-install:
+# 开发：前端 vite HMR (:5173) + 后端 air 热重载 (:8080)，API 经 vite 代理。
+dev:
+	@echo "开发模式：前端 http://localhost:5173 (HMR)，后端 air 热重载 :8080"
+	@trap 'kill 0' EXIT INT TERM; \
+	$(NPM) run dev --prefix frontend & \
+	$(AIR)
+
+# 发布：构建前端 + macOS/Windows 二进制到 output/。
+build:
 	@$(NPM) install --prefix frontend
-
-frontend-build: frontend-install
 	@$(NPM) run build --prefix frontend
-
-build: frontend-build build-go
-
-build-go:
 	@mkdir -p '$(OUT_DIR)'
-	@case '$(OS)' in \
-		macos|darwin) \
-			GOOS=darwin GOARCH='$(ARCH)' CGO_ENABLED='$(CGO_ENABLED)' go build $(GOFLAGS) -o '$(OUT_DIR)/$(APP_NAME)_macOS_$(ARCH)' . ;; \
-		windows) \
-			GOOS=windows GOARCH='$(ARCH)' CGO_ENABLED='$(CGO_ENABLED)' go build $(GOFLAGS) -o '$(OUT_DIR)/$(APP_NAME)_windows_$(ARCH).exe' . ;; \
-		*) \
-			printf '%s\n' 'Unsupported OS: $(OS). Use OS=macos or OS=windows.' >&2; \
-			exit 2 ;; \
-	esac
-
-macos:
-	@$(MAKE) build OS=macos ARCH='$(ARCH)'
-
-windows:
-	@$(MAKE) build OS=windows ARCH='$(ARCH)'
-
-all: frontend-build
-	@$(MAKE) build-go OS=macos ARCH='$(ARCH)'
-	@$(MAKE) build-go OS=windows ARCH='$(ARCH)'
+	@GOOS=darwin  GOARCH='$(ARCH)' CGO_ENABLED=0 go build -ldflags="-s -w" -o '$(OUT_DIR)/$(APP_NAME)_macOS_$(ARCH)' .
+	@GOOS=windows GOARCH='$(ARCH)' CGO_ENABLED=0 go build -ldflags="-s -w" -o '$(OUT_DIR)/$(APP_NAME)_windows_$(ARCH).exe' .
 
 clean:
-	@rm -f '$(OUT_DIR)/$(APP_NAME)_macOS_'* '$(OUT_DIR)/$(APP_NAME)_windows_'*.exe
+	@rm -rf '$(OUT_DIR)' .air

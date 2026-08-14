@@ -1,0 +1,5 @@
+# macOS 开发依赖。运行 `brew bundle` 或 `scripts/setup.sh` 安装。
+# go: 后端语言（go.mod 要求 >= 1.22，brew 装最新版即可）
+# node: 前端构建（vite/react），含 npm
+brew "go"
+brew "node"

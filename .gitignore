@@ -5,6 +5,8 @@
 /dist/
 /bin/
 /output/
+/.air/
+/log/
 *.out
 /frontend/node_modules/
 /frontend/.vite/

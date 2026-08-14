@@ -35,15 +35,33 @@ func (h *HPState) Status() string {
 		return "未设置生命值"
 	}
 	if h.Intact() < 0 {
-		return "⚠️ 伤害超过上限"
+		return "伤害超过上限"
 	}
 	if h.A >= h.Max && h.B == 0 && h.L == 0 {
-		return "💀 死亡"
+		return "死亡"
 	}
 	if h.Intact() == 0 {
-		return "😵 昏迷（无完好生命值）"
+		return "昏迷"
 	}
-	return "✅ 正常"
+	return "正常"
+}
+
+// StatusKey 返回机器可读的状态标识，前端据此渲染对应的线性图标与配色，
+// 避免 Status() 里的中文文案/emoji 直接驱动 UI。
+func (h *HPState) StatusKey() string {
+	if h.Max <= 0 {
+		return "unset"
+	}
+	if h.Intact() < 0 {
+		return "over"
+	}
+	if h.A >= h.Max && h.B == 0 && h.L == 0 {
+		return "dead"
+	}
+	if h.Intact() == 0 {
+		return "dazed"
+	}
+	return "ok"
 }
 
 func (h *HPState) Snapshot() map[string]interface{} {
@@ -58,7 +76,8 @@ func (h *HPState) Snapshot() map[string]interface{} {
 		"l":      h.L,
 		"a":      h.A,
 		"total":  h.TotalDamage(),
-		"status": h.Status(),
+		"status":    h.Status(),
+		"statusKey": h.StatusKey(),
 		"log":    logCopy,
 	}
 }
