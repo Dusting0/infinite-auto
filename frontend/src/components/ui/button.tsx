@@ -1,15 +1,16 @@
 import type { ButtonHTMLAttributes } from "react";
 import { cn } from "../../lib/utils";
 
-type ButtonVariant = "default" | "secondary" | "destructive" | "ghost" | "outline";
+type ButtonVariant = "default" | "secondary" | "destructive" | "ghost" | "outline" | "gold";
 type ButtonSize = "sm" | "md" | "icon";
 
 const variants: Record<ButtonVariant, string> = {
-  default: "bg-primary text-primary-foreground shadow-md shadow-sky-950/30 hover:bg-primary/90 hover:shadow-sky-500/15",
+  default: "bg-primary text-primary-foreground hover:bg-primary/90",
   secondary: "border border-border/70 bg-secondary text-secondary-foreground hover:bg-secondary/80",
   destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
   ghost: "hover:bg-accent hover:text-accent-foreground",
   outline: "border border-border bg-background hover:bg-accent hover:text-accent-foreground",
+  gold: "bg-[hsl(40_50%_38%)] text-[hsl(40_40%_94%)] hover:bg-[hsl(40_52%_45%)]",
 };
 
 const sizes: Record<ButtonSize, string> = {
