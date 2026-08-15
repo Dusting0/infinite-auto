@@ -82,11 +82,11 @@ type presetData struct {
 	// 防御附加成功 / 伤害相关
 	DefenseBonusSuccess int    `json:"defenseBonusSuccess"` // 防御附加成功
 	DamageAbsorb        int    `json:"damageAbsorb"`        // 伤害吸收数值
-	DamageAbsorbType    string `json:"damageAbsorbType"`    // physical | all
-	DRValue             int    `json:"drValue"`             // 物理伤害减免数值（DR X / type）
-	DRType              string `json:"drType"`              // 备注，如 神兵
-	ERValue             int    `json:"erValue"`             // 能量抗力数值（ER X / type）
-	ERType              string `json:"erType"`              // 备注，如 能量类型
+	DamageAbsorbType    string `json:"damageAbsorbType"`    // physical | energy | all
+	DRValue             int    `json:"drValue"`             // 物理伤害减免数值（DR X）
+	DRType              string `json:"drType"`              // DR 弱点枚举：""=DR/- 无弱点 | magic | divine | slashing | piercing | bludgeoning
+	ERValue             int    `json:"erValue"`             // 能量抗力数值（ER X）
+	ERType              string `json:"erType"`              // 能量子类型枚举：all=全能量抗力 | pure | fire | cold | lightning | corrosion | light | dark | sonic | luminous
 
 	Customs []CustomComp `json:"customs"`
 	Notes   string       `json:"notes"`
@@ -100,6 +100,31 @@ func otherName(s, def string) string {
 	return s
 }
 
+// 弱点/子类型/吸收类型的合法枚举。未知值归一：DRType→""（DR/-，对所有物理生效）、
+// ERType→"all"（全能量抗力，保持旧行为）、DamageAbsorbType→"physical"。
+var validDRTypes = map[string]bool{"": true, "magic": true, "divine": true, "slashing": true, "piercing": true, "bludgeoning": true}
+var validERTypes = map[string]bool{"": true, "all": true, "pure": true, "fire": true, "cold": true, "lightning": true, "corrosion": true, "light": true, "dark": true, "sonic": true, "luminous": true}
+var validAbsorbTypes = map[string]bool{"": true, "physical": true, "energy": true, "all": true}
+
+func normalizeDRType(s string) string {
+	if validDRTypes[s] {
+		return s
+	}
+	return ""
+}
+func normalizeERType(s string) string {
+	if validERTypes[s] {
+		return s
+	}
+	return "all"
+}
+func normalizeAbsorbType(s string) string {
+	if validAbsorbTypes[s] {
+		return s
+	}
+	return "physical"
+}
+
 func NewPreset(name string) *Preset {
 	if name == "" {
 		name = "默认预设"
@@ -111,6 +136,7 @@ func NewPreset(name string) *Preset {
 			Other2Name:       "其他1",
 			Other3Name:       "其他2",
 			DamageAbsorbType: "physical",
+			ERType:           "all", // 默认全能量抗力（对所有能量生效）
 			Customs:          []CustomComp{},
 		},
 	}
@@ -390,13 +416,11 @@ func (p *Preset) Update(in *Preset) error {
 	p.ResistMagic = in.ResistMagic
 	p.DefenseBonusSuccess = in.DefenseBonusSuccess
 	p.DamageAbsorb = in.DamageAbsorb
-	if in.DamageAbsorbType != "" {
-		p.DamageAbsorbType = in.DamageAbsorbType
-	}
+	p.DamageAbsorbType = normalizeAbsorbType(in.DamageAbsorbType)
 	p.DRValue = in.DRValue
-	p.DRType = in.DRType
+	p.DRType = normalizeDRType(in.DRType)
 	p.ERValue = in.ERValue
-	p.ERType = in.ERType
+	p.ERType = normalizeERType(in.ERType)
 	p.Notes = in.Notes
 	if in.Traits != nil {
 		p.Traits = append([]string(nil), in.Traits...)

@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { AlertTriangle, CheckCircle2, ChevronDown, CircleSlash, Coffee, Dices, EyeOff, HeartPulse, Minus, Moon, Pencil, Plus, RotateCcw, Shield, Skull, Trash2, X } from "lucide-react";
+import { useEffect, useState, type ReactNode } from "react";
+import { AlertTriangle, CheckCircle2, ChevronDown, CircleSlash, Coffee, Dices, EyeOff, HeartPulse, Hourglass, Minus, Moon, Pencil, Plus, RotateCcw, Scroll, Shield, Skull, Trash2, X } from "lucide-react";
 import { getJson, postJson } from "./lib/api";
 import { toInt } from "./lib/utils";
 import type {
@@ -14,9 +14,17 @@ import { Button } from "./components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./components/ui/card";
 import { Checkbox } from "./components/ui/checkbox";
 import { Input } from "./components/ui/input";
-import { Label } from "./components/ui/label";
-import { Select } from "./components/ui/select";
 import { Switch } from "./components/ui/switch";
+
+// 哥特前置图标
+const IcoTrefoil = <svg viewBox="0 0 40 36" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={1.2}><circle cx="20" cy="11" r="7.5"/><circle cx="10.5" cy="22" r="7.5"/><circle cx="29.5" cy="22" r="7.5"/><path d="M20 18.5 V33"/></svg>;
+const IcoCross = <svg viewBox="0 0 24 32" className="h-3.5 w-3.5" fill="currentColor"><path d="M10 0 h4 v8 h6 v4 h-6 v20 h-4 v-20 h-6 v-4 h6 z"/></svg>;
+const IcoThorn = <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={1.3} strokeLinecap="round"><path d="M12 22 V4"/><path d="M12 8 L7 5 M12 12 L17 9 M12 16 L7 13"/></svg>;
+const IcoCrossPattee = <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="currentColor"><path d="M12 2 L13.5 8 L20 5 L15 11 L22 12 L15 13 L20 19 L13.5 16 L12 22 L10.5 16 L4 19 L9 13 L2 12 L9 11 L4 5 L10.5 8 Z"/></svg>;
+const IcoEye = <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={1.3}><path d="M2 12 C6 6 18 6 22 12 C18 18 6 18 2 12 Z"/><circle cx="12" cy="12" r="3"/></svg>;
+const IcoShield = <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={1.3} strokeLinejoin="round"><path d="M12 2 L20 5 V11 C20 16 16 19 12 21 C8 19 4 16 4 11 V5 Z"/></svg>;
+const IcoCrown = <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={1.3} strokeLinejoin="round"><path d="M3 16 L7 9 L12 13 L17 9 L21 16 V19 H3 Z"/><circle cx="7" cy="9" r="1" fill="currentColor" stroke="none"/><circle cx="17" cy="9" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="13" r="1" fill="currentColor" stroke="none"/></svg>;
+const IcoPentagram = <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={1.3} strokeLinejoin="round"><path d="M12 2 L14.5 9 L22 9 L16 13.5 L18.5 21 L12 16.5 L5.5 21 L8 13.5 L2 9 L9.5 9 Z"/></svg>;
 
 const damageTypes = ["冲击", "严重", "恶性"] as const;
 const combatDamageKinds = [
@@ -45,6 +53,10 @@ type AttackForm = {
   damageKind: CombatDamageKind;
   damageLimit: number;
   woundType: (typeof damageTypes)[number];
+  magic: boolean;
+  divine: boolean;
+  physSubtype: string;
+  energyType: string;
 };
 
 const defaultAttackForm: AttackForm = {
@@ -57,6 +69,10 @@ const defaultAttackForm: AttackForm = {
   damageKind: "physical",
   damageLimit: 0,
   woundType: "严重",
+  magic: false,
+  divine: false,
+  physSubtype: "",
+  energyType: "pure",
 };
 
 const emptyHp: HpSnapshot = {
@@ -71,24 +87,19 @@ const emptyHp: HpSnapshot = {
   log: [],
 };
 
-const numberFields: Array<{ key: keyof DefensePreset; label: string; group: "speed" | "armor" | "magic" | "perfect" | "absorb" | "other"; editableLabelKey?: "other2Name" | "other3Name" }> = [
-  { key: "base", label: "基础", group: "speed" },
-  { key: "dodge", label: "闪避", group: "speed" },
-  { key: "block", label: "格挡", group: "speed" },
-  { key: "natural", label: "天生", group: "armor" },
-  { key: "armorMelee", label: "盔甲", group: "armor" },
-  { key: "shieldMelee", label: "盾牌", group: "armor" },
-  { key: "force", label: "力场", group: "magic" },
-  { key: "deflection", label: "偏斜", group: "magic" },
-  { key: "insight", label: "洞察", group: "magic" },
-  { key: "coverBonus", label: "掩蔽", group: "magic" },
-  { key: "other2", label: "其他1", group: "other", editableLabelKey: "other2Name" },
-  { key: "other3", label: "其他2", group: "other", editableLabelKey: "other3Name" },
-  { key: "perfectDefense", label: "完美防御", group: "perfect" },
-  { key: "defenseBonusSuccess", label: "防御附加成功", group: "absorb" },
-  { key: "damageAbsorb", label: "伤害吸收", group: "absorb" },
-  { key: "drValue", label: "DR", group: "absorb" },
-  { key: "erValue", label: "ER", group: "absorb" },
+const numberFields: Array<{ key: keyof DefensePreset; label: string; group: "speed" | "armor" | "magic" | "other"; editableLabelKey?: "other2Name" | "other3Name"; icon?: ReactNode }> = [
+  { key: "base", label: "基础", group: "speed", icon: IcoEye },
+  { key: "dodge", label: "闪避", group: "speed", icon: IcoEye },
+  { key: "block", label: "格挡", group: "speed", icon: IcoEye },
+  { key: "natural", label: "天生", group: "armor", icon: IcoShield },
+  { key: "armorMelee", label: "盔甲", group: "armor", icon: IcoShield },
+  { key: "shieldMelee", label: "盾牌", group: "armor", icon: IcoShield },
+  { key: "force", label: "力场", group: "magic", icon: IcoCross },
+  { key: "deflection", label: "偏斜", group: "magic", icon: IcoCross },
+  { key: "insight", label: "洞察", group: "magic", icon: IcoCross },
+  { key: "coverBonus", label: "掩蔽", group: "magic", icon: IcoCross },
+  { key: "other2", label: "其他1", group: "other", editableLabelKey: "other2Name", icon: IcoCross },
+  { key: "other3", label: "其他2", group: "other", editableLabelKey: "other3Name", icon: IcoCross },
 ];
 
 function asNumber(value: unknown) {
@@ -202,9 +213,10 @@ type NumberEditorProps = {
   allowNegative?: boolean;
   triggerClassName?: string;
   onLabelChange?: (label: string) => void;
+  icon?: ReactNode;
 };
 
-function NumberEditor({ label, value, displayValue, status = "normal", onChange, min, allowNegative = false, triggerClassName, onLabelChange }: NumberEditorProps) {
+function NumberEditor({ label, value, displayValue, status = "normal", onChange, min, allowNegative = false, triggerClassName, onLabelChange, icon }: NumberEditorProps) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(String(value));
   const [editingLabel, setEditingLabel] = useState(false);
@@ -239,6 +251,7 @@ function NumberEditor({ label, value, displayValue, status = "normal", onChange,
     <>
       <button type="button" className={[triggerClassName, status === "inactive" ? "field-inactive" : status === "boosted" ? "field-boosted" : ""].filter(Boolean).join(" ")} onClick={() => setOpen(true)} aria-haspopup="dialog" aria-expanded={open} aria-label={`编辑${label}`}>
         <span className="inline-flex items-center gap-1 whitespace-nowrap text-xs text-muted-foreground shrink-0">
+          {icon && <span className="text-amber-400/70">{icon}</span>}
           {label}
           {status === "inactive" && <span className="tag-inactive">失效</span>}
           {status === "boosted" && <span className="tag-boosted">增强</span>}
@@ -299,7 +312,16 @@ function NumberEditor({ label, value, displayValue, status = "normal", onChange,
   );
 }
 
-function StatPill({ label, value, tone = "default", onChange, min, allowNegative = false }: { label: string; value: number | string; tone?: "default" | "good" | "warn" | "bad" | "blue"; onChange?: (value: number) => void; min?: number; allowNegative?: boolean }) {
+function StatPill({ label, value, tone = "default", variant = "default", onChange, min, allowNegative = false }: { label: string; value: number | string; tone?: "default" | "good" | "warn" | "bad" | "blue"; variant?: "default" | "preview"; onChange?: (value: number) => void; min?: number; allowNegative?: boolean }) {
+  if (variant === "preview") {
+    const previewTone: Record<string, string> = { blue: "preview-blue", warn: "preview-warn", good: "preview-good" };
+    return (
+      <div className={`stat-pill-preview ${previewTone[tone] ?? ""}`}>
+        <span className="text-xs text-muted-foreground">{label}</span>
+        <strong>{value}</strong>
+      </div>
+    );
+  }
   const toneClass = {
     default: "text-foreground",
     good: "text-emerald-300",
@@ -312,8 +334,22 @@ function StatPill({ label, value, tone = "default", onChange, min, allowNegative
   return <div className={className}><span className="text-xs text-muted-foreground whitespace-nowrap shrink-0">{label}</span><strong>{value}</strong></div>;
 }
 
-function NumberInput({ label, value, displayValue, status, onChange, min, allowNegative = false, onLabelChange }: { label: string; value: number; displayValue?: number; status?: FieldStatus; onChange: (value: number) => void; min?: number; allowNegative?: boolean; onLabelChange?: (label: string) => void }) {
-  return <NumberEditor label={label} value={value} displayValue={displayValue} status={status} onChange={onChange} min={min} allowNegative={allowNegative} triggerClassName="number-field-trigger" onLabelChange={onLabelChange} />;
+function NumberInput({ label, value, displayValue, status, onChange, min, allowNegative = false, onLabelChange, icon }: { label: string; value: number; displayValue?: number; status?: FieldStatus; onChange: (value: number) => void; min?: number; allowNegative?: boolean; onLabelChange?: (label: string) => void; icon?: ReactNode }) {
+  return <NumberEditor label={label} value={value} displayValue={displayValue} status={status} onChange={onChange} min={min} allowNegative={allowNegative} triggerClassName="number-field-trigger" onLabelChange={onLabelChange} icon={icon} />;
+}
+
+// FieldSelect：标签与取值同一行的下拉框，外观与 NumberInput 一致（h-9 描边胶囊）。
+function FieldSelect({ label, value, onChange, children, icon }: { label: string; value: string; onChange: (value: string) => void; children: ReactNode; icon?: ReactNode }) {
+  return (
+    <label className="fieldsel">
+      {icon && <span className="text-amber-400/70">{icon}</span>}
+      <span className="text-xs text-muted-foreground whitespace-nowrap shrink-0">{label}</span>
+      <select className="fieldsel-select" value={value} onChange={(event) => onChange(event.target.value)}>
+        {children}
+      </select>
+      <svg className="fieldsel-chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 6 L8 11 L13 6" /></svg>
+    </label>
+  );
 }
 
 function DiceFaceGrid({ result }: { result: DiceResult }) {
@@ -419,7 +455,7 @@ function HpPanel({ hp, onHp, onError, defenseDraft, onDefenseDraftChange, onDefe
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2"><HeartPulse className="h-4 w-4" />血量</CardTitle>
+        <CardTitle className="flex items-center gap-2"><HeartPulse className="h-4 w-4 text-amber-400/70" />血量<span className="font-cinzel ml-1 text-[10px] font-medium uppercase tracking-[0.2em] text-amber-300/55">Vitality</span></CardTitle>
         <div className={`flex items-center gap-1.5 text-sm font-semibold ${statusMeta.tone}`}><StatusIcon className="h-4 w-4" />{hp.status}</div>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -442,31 +478,30 @@ function HpPanel({ hp, onHp, onError, defenseDraft, onDefenseDraftChange, onDefe
           {parts.every((part) => part.value <= 0) && <div className="flex flex-1 items-center justify-center text-xs text-muted-foreground">暂无生命分段</div>}
         </div>
 
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <button type="button" className="flex h-9 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-sky-400/[0.06] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" onClick={() => setCustomOpen((value) => !value)} aria-expanded={customOpen} aria-label="自定义伤害">
-              <ChevronDown className={`h-4 w-4 transition-transform ${customOpen ? "" : "-rotate-90"}`} />
-            </button>
-            <div className="w-24">
-              <NumberInput label="受伤" value={damageAmount} min={1} onChange={setDamageAmount} />
-            </div>
-            <div className="relative w-28">
-              <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">类型</span>
-              <Select className="pl-12" style={{ paddingLeft: "3rem" }} value={damageType} onChange={(event) => setDamageType(event.target.value as (typeof damageTypes)[number])}>
-                {damageTypes.map((type) => <option key={type}>{type}</option>)}
-              </Select>
-            </div>
-          </div>
-          <Button onClick={applyDamage}>应用</Button>
-        </div>
-
-        <CustomDamageSection open={customOpen} defenseDraft={defenseDraft} onDefenseDraftChange={onDefenseDraftChange} onDefense={onDefense} onDice={onDice} onError={onError} onResolved={(amount, type) => { setDamageAmount(amount); setDamageType(type); }} />
-
         <div className="grid grid-cols-3 gap-2">
           <Button variant="secondary" onClick={shortRest}><Coffee className="h-4 w-4" />短休</Button>
           <Button variant="secondary" onClick={longRest}><Moon className="h-4 w-4" />长休</Button>
           <Button variant="destructive" onClick={() => setResetOpen(true)}><RotateCcw className="h-4 w-4" />重置</Button>
         </div>
+
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <button type="button" className="flex h-9 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-sky-400/[0.06] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" onClick={() => setCustomOpen((value) => !value)} aria-expanded={customOpen} aria-label="自定义伤害">
+              <ChevronDown className={`h-3.5 w-3.5 transition-transform ${customOpen ? "" : "-rotate-90"}`} />
+            </button>
+            <div className="w-24">
+              <NumberInput label="伤害" value={damageAmount} min={1} onChange={setDamageAmount} />
+            </div>
+            <div className="w-28">
+              <FieldSelect label="类型" value={damageType} onChange={(v) => setDamageType(v as (typeof damageTypes)[number])}>
+                {damageTypes.map((type) => <option key={type} value={type}>{type}</option>)}
+              </FieldSelect>
+            </div>
+          </div>
+          <Button variant="gold" onClick={applyDamage}>应用</Button>
+        </div>
+
+        <CustomDamageSection open={customOpen} defenseDraft={defenseDraft} onDefenseDraftChange={onDefenseDraftChange} onDefense={onDefense} onDice={onDice} onError={onError} onResolved={(amount, type) => { setDamageAmount(amount); setDamageType(type); }} />
 
       </CardContent>
       {longRestOpen && (
@@ -509,6 +544,7 @@ function HpPanel({ hp, onHp, onError, defenseDraft, onDefenseDraftChange, onDefe
 
 function DefensePanel({ snapshot, draft, onDraftChange, onDefense, onError }: { snapshot?: DefenseSnapshot; draft?: DefensePreset; onDraftChange: (draft: DefensePreset) => void; onDefense: (snapshot: DefenseSnapshot) => void; onError: (error: string) => void }) {
   const [traitText, setTraitText] = useState("");
+  const [resetOpen, setResetOpen] = useState(false);
 
   const saveDraft = async (nextDraft: DefensePreset) => {
     try {
@@ -525,8 +561,9 @@ function DefensePanel({ snapshot, draft, onDraftChange, onDefense, onError }: { 
   };
   const updateNumber = (key: keyof DefensePreset, value: number) => update(key, value as never);
 
-  const reset = async () => {
-    if (!window.confirm("清空防御预设？")) return;
+  const reset = () => setResetOpen(true);
+  const confirmReset = async () => {
+    setResetOpen(false);
     try {
       onDefense(await postJson<DefenseSnapshot>("/api/defense/reset"));
     } catch (error) {
@@ -552,8 +589,6 @@ function DefensePanel({ snapshot, draft, onDraftChange, onDefense, onError }: { 
     speed: numberFields.filter((field) => field.group === "speed"),
     armor: numberFields.filter((field) => field.group === "armor"),
     magic: numberFields.filter((field) => field.group === "magic"),
-    perfect: numberFields.filter((field) => field.group === "perfect"),
-    absorb: numberFields.filter((field) => field.group === "absorb"),
     other: numberFields.filter((field) => field.group === "other"),
   };
 
@@ -571,6 +606,7 @@ function DefensePanel({ snapshot, draft, onDraftChange, onDefense, onError }: { 
             displayValue={st.effective}
             status={st.status}
             allowNegative={field.key === "defenseBonusSuccess"}
+            icon={field.icon}
             onChange={(value) => updateNumber(field.key, value)}
             onLabelChange={labelKey ? (next) => update(labelKey, next) : undefined}
           />
@@ -582,14 +618,14 @@ function DefensePanel({ snapshot, draft, onDraftChange, onDefense, onError }: { 
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2"><Shield className="h-4 w-4" />防御预设</CardTitle>
+        <CardTitle className="flex items-center gap-2"><Shield className="h-4 w-4 text-amber-400/70" />防御预设<span className="font-cinzel ml-1 text-[10px] font-medium uppercase tracking-[0.2em] text-amber-300/55">Defense</span></CardTitle>
         <Button size="sm" variant="ghost" onClick={reset}><Trash2 className="h-4 w-4" /></Button>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid grid-cols-3 gap-2">
-          <StatPill label="高速防御" value={preview.speed} tone="blue" />
-          <StatPill label="破甲防御" value={preview.armor} tone="warn" />
-          <StatPill label="破魔防御" value={preview.magic} tone="good" />
+          <StatPill label="高速防御" value={preview.speed} tone="blue" variant="preview" />
+          <StatPill label="破甲防御" value={preview.armor} tone="warn" variant="preview" />
+          <StatPill label="破魔防御" value={preview.magic} tone="good" variant="preview" />
         </div>
 
         <div className="flex flex-wrap gap-2">
@@ -599,21 +635,10 @@ function DefensePanel({ snapshot, draft, onDraftChange, onDefense, onError }: { 
         </div>
 
         <section className="space-y-2">
-          <div className="section-label">高速防御</div>
-          {renderFields(groups.speed)}
-        </section>
-        <section className="space-y-2">
-          <div className="section-label">破甲防御</div>
-          {renderFields(groups.armor)}
-        </section>
-        <section className="space-y-2">
-          <div className="section-label">破魔防御</div>
-          {renderFields([...groups.magic, ...groups.other])}
-        </section>
-        <section className="space-y-2">
-          <div className="section-label">完美防御</div>
+          <div className="section-label">通用防御</div>
           <div className="grid grid-cols-3 items-center gap-2">
-            <NumberInput label="完美防御" value={asNumber(draft.perfectDefense)} onChange={(value) => updateNumber("perfectDefense", value)} />
+            <NumberInput label="防御附加成功" value={asNumber(draft.defenseBonusSuccess)} allowNegative icon={IcoCrown} onChange={(value) => updateNumber("defenseBonusSuccess", value)} />
+            <NumberInput label="完美防御" value={asNumber(draft.perfectDefense)} icon={IcoPentagram} onChange={(value) => updateNumber("perfectDefense", value)} />
             <label className="flex cursor-pointer items-center gap-1.5 whitespace-nowrap">
               <span className="text-xs text-muted-foreground">生效</span>
               <Switch checked={draft.perfectDefenseActive} onCheckedChange={(checked) => update("perfectDefenseActive", checked)} />
@@ -621,24 +646,67 @@ function DefensePanel({ snapshot, draft, onDraftChange, onDefense, onError }: { 
           </div>
         </section>
         <section className="space-y-2">
+          <div className="flex items-center gap-2">
+            <span className="section-label">高速防御</span>
+            <div className="ml-auto w-24">
+              <NumberInput label="抵高速" value={asNumber(draft.resistSpeed)} icon={IcoEye} onChange={(value) => updateNumber("resistSpeed", value)} />
+            </div>
+          </div>
+          {renderFields(groups.speed)}
+        </section>
+        <section className="space-y-2">
+          <div className="flex items-center gap-2">
+            <span className="section-label">破甲防御</span>
+            <div className="ml-auto w-24">
+              <NumberInput label="抵破甲" value={asNumber(draft.resistAP)} icon={IcoShield} onChange={(value) => updateNumber("resistAP", value)} />
+            </div>
+          </div>
+          {renderFields(groups.armor)}
+        </section>
+        <section className="space-y-2">
+          <div className="flex items-center gap-2">
+            <span className="section-label">破魔防御</span>
+            <div className="ml-auto w-24">
+              <NumberInput label="抵破魔" value={asNumber(draft.resistMagic)} icon={IcoCross} onChange={(value) => updateNumber("resistMagic", value)} />
+            </div>
+          </div>
+          {renderFields([...groups.magic, ...groups.other])}
+        </section>
+        <section className="space-y-2">
           <div className="section-label">伤害吸收 / 减免</div>
-          {renderFields(groups.absorb)}
-          <div className="grid grid-cols-3 gap-2">
-            <label className="space-y-1.5">
-              <Label>吸收类型</Label>
-              <Select value={draft.damageAbsorbType || "physical"} onChange={(event) => update("damageAbsorbType", event.target.value)}>
-                <option value="physical">物理伤害吸收</option>
-                <option value="all">全伤害吸收</option>
-              </Select>
-            </label>
-            <label className="space-y-1.5">
-              <Label>DR 备注</Label>
-              <Input value={draft.drType ?? ""} onChange={(event) => update("drType", event.target.value)} placeholder="神兵" />
-            </label>
-            <label className="space-y-1.5">
-              <Label>ER 备注</Label>
-              <Input value={draft.erType ?? ""} onChange={(event) => update("erType", event.target.value)} placeholder="能量类型" />
-            </label>
+          <div className="grid grid-cols-2 gap-2">
+            <NumberInput label="伤害吸收" value={asNumber(draft.damageAbsorb)} icon={IcoEye} onChange={(value) => updateNumber("damageAbsorb", value)} />
+            <FieldSelect label="吸收类型" value={draft.damageAbsorbType || "physical"} onChange={(v) => update("damageAbsorbType", v)}>
+              <option value="physical">物理伤害吸收</option>
+              <option value="energy">能量伤害吸收</option>
+              <option value="all">全伤害吸收</option>
+            </FieldSelect>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <NumberInput label="DR" value={asNumber(draft.drValue)} icon={IcoShield} onChange={(value) => updateNumber("drValue", value)} />
+            <FieldSelect label="DR 弱点" value={draft.drType ?? ""} onChange={(v) => update("drType", v)}>
+              <option value="">无（DR/-）</option>
+              <option value="magic">魔法</option>
+              <option value="divine">神兵</option>
+              <option value="slashing">挥砍</option>
+              <option value="piercing">穿刺</option>
+              <option value="bludgeoning">钝击</option>
+            </FieldSelect>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <NumberInput label="ER" value={asNumber(draft.erValue)} icon={IcoCross} onChange={(value) => updateNumber("erValue", value)} />
+            <FieldSelect label="ER 类型" value={draft.erType || "all"} onChange={(v) => update("erType", v)}>
+              <option value="all">全能量抗力</option>
+              <option value="pure">纯能量</option>
+              <option value="fire">火焰</option>
+              <option value="cold">寒冰</option>
+              <option value="lightning">雷电</option>
+              <option value="corrosion">腐蚀</option>
+              <option value="light">光明</option>
+              <option value="dark">黑暗</option>
+              <option value="sonic">音波</option>
+              <option value="luminous">光能</option>
+            </FieldSelect>
           </div>
         </section>
 
@@ -661,6 +729,20 @@ function DefensePanel({ snapshot, draft, onDraftChange, onDefense, onError }: { 
           </div>
         </section>
       </CardContent>
+      {resetOpen && (
+        <div className="number-editor-backdrop" role="presentation" onMouseDown={() => setResetOpen(false)}>
+          <section className="reset-dialog" role="dialog" aria-modal="true" aria-labelledby="reset-defense-title" onMouseDown={(event) => event.stopPropagation()}>
+            <div className="reset-dialog-icon"><Trash2 className="h-6 w-6" /></div>
+            <div className="eyebrow text-rose-300">危险操作</div>
+            <h3 id="reset-defense-title" className="font-display mt-1 text-2xl font-semibold">清空防御预设？</h3>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">这将清除所有防御成分、状态开关、特性与吸收/减免设置，恢复为默认预设。</p>
+            <div className="mt-6 grid grid-cols-2 gap-2">
+              <Button variant="secondary" onClick={() => setResetOpen(false)}>保留当前</Button>
+              <Button variant="destructive" onClick={confirmReset}><Trash2 className="h-4 w-4" />确认清空</Button>
+            </div>
+          </section>
+        </div>
+      )}
     </Card>
   );
 }
@@ -683,19 +765,16 @@ function DicePanel({ result, onDice, onError }: { result?: DiceResult; onDice: (
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2"><Dices className="h-4 w-4" />掷骰</CardTitle>
-        <Button size="sm" onClick={() => roll()}>投掷</Button>
+        <CardTitle className="flex items-center gap-2"><Dices className="h-4 w-4 text-amber-400/70" />掷骰<span className="font-cinzel ml-1 text-[10px] font-medium uppercase tracking-[0.2em] text-amber-300/55">Dice</span></CardTitle>
+        <Button size="sm" variant="gold" onClick={() => roll()}>投掷</Button>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid grid-cols-[1fr_1fr_96px] items-end gap-2">
           <NumberInput label="DP" value={dp} allowNegative onChange={setDp} />
           <NumberInput label="附加成功" value={bonus} allowNegative onChange={setBonus} />
-          <label className="space-y-1.5">
-            <Label>加骰</Label>
-            <Select value={explodeOn} onChange={(event) => setExplodeOn(toInt(event.target.value, 10))}>
-              {explodeOptions.map((value) => <option key={value} value={value}>{value}</option>)}
-            </Select>
-          </label>
+          <FieldSelect label="加骰" value={String(explodeOn)} onChange={(v) => setExplodeOn(toInt(v, 10))}>
+            {explodeOptions.map((value) => <option key={value} value={value}>{value}</option>)}
+          </FieldSelect>
         </div>
         <DiceResultView result={result} />
       </CardContent>
@@ -719,7 +798,7 @@ function SavesPanel({ onDice, onError }: { onDice: (result: DiceResult, source: 
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2"><Shield className="h-4 w-4" />三豁免</CardTitle>
+        <CardTitle className="flex items-center gap-2"><Hourglass className="h-4 w-4 text-amber-400/70" />三豁免<span className="font-cinzel ml-1 text-[10px] font-medium uppercase tracking-[0.2em] text-amber-300/55">Saves</span></CardTitle>
       </CardHeader>
       <CardContent className="space-y-2">
         {([
@@ -727,12 +806,14 @@ function SavesPanel({ onDice, onError }: { onDice: (result: DiceResult, source: 
           ["ref", "反射"],
           ["will", "意志"],
         ] as const).map(([kind, label]) => (
-          <div key={kind} className="grid grid-cols-[48px_1fr_1fr_auto_64px] items-end gap-2">
-            <div className="pb-2 text-sm font-semibold text-sky-300">{label}</div>
+          <div key={kind} className="grid grid-cols-[48px_1fr_1.4fr_auto] items-center gap-2">
+            <div className="text-sm font-semibold text-amber-400/70">{label}</div>
             <NumberInput label="DP" value={saves[kind].dp} allowNegative onChange={(value) => setSaves((prev) => ({ ...prev, [kind]: { ...prev[kind], dp: value } }))} />
             <NumberInput label="附加成功" value={saves[kind].bonus} allowNegative onChange={(value) => setSaves((prev) => ({ ...prev, [kind]: { ...prev[kind], bonus: value } }))} />
-            <Button variant="secondary" onClick={() => rollSave(kind, label)}>检定</Button>
-            <div className="pb-2 text-right text-sm font-bold text-sky-300">{saves[kind].out}</div>
+            <div className="flex items-center gap-1">
+              <Button variant="secondary" onClick={() => rollSave(kind, label)}>检定</Button>
+              <span className="min-w-[3rem] text-right text-sm font-bold text-amber-400/80">{saves[kind].out}</span>
+            </div>
           </div>
         ))}
       </CardContent>
@@ -781,6 +862,10 @@ function CustomDamageSection({ open, defenseDraft, onDefenseDraftChange, onDefen
         damageKind: form.damageKind,
         isPhysical: form.damageKind !== "energy",
         damageLimit: form.damageLimit,
+        magic: form.magic,
+        divine: form.divine,
+        physSubtype: form.physSubtype,
+        energyType: form.energyType,
       });
       setResult(next);
       if (next.roll) onDice(next.roll, "伤害");
@@ -794,51 +879,60 @@ function CustomDamageSection({ open, defenseDraft, onDefenseDraftChange, onDefen
 
   if (!open) return null;
   return (
-    <div className="space-y-3 rounded-md border border-border bg-background/40 px-3 pb-3 pt-1">
-        <div className="flex justify-end gap-2">
-          <Button size="sm" variant="secondary" onClick={resetAttack}><RotateCcw className="h-4 w-4" />重置</Button>
-          <Button size="sm" onClick={resolve}>结算</Button>
+    <div className="space-y-3 rounded-md border border-border bg-background/40 px-3 pb-3 pt-3">
+        <div className="flex items-center justify-between gap-2">
+          <Button size="icon" variant="ghost" onClick={resetAttack} aria-label="重置"><RotateCcw className="h-4 w-4" /></Button>
+          <div className="flex items-center gap-2">
+            <div className="w-24"><NumberInput label="伤害上限" value={form.damageLimit} onChange={(value) => update("damageLimit", value)} /></div>
+            <Button size="icon" variant="gold" onClick={resolve} aria-label="结算"><Dices className="h-4 w-4" /></Button>
+          </div>
         </div>
         <div className="grid grid-cols-3 gap-2">
           <NumberInput label="攻击 DP" value={form.attackDP} allowNegative onChange={(value) => update("attackDP", value)} />
+          <NumberInput label="附加成功" value={form.bonusSuccess} allowNegative onChange={(value) => update("bonusSuccess", value)} />
+          <FieldSelect label="加骰" value={String(form.explodeOn)} onChange={(v) => update("explodeOn", toInt(v, 10))}>
+            {explodeOptions.map((value) => <option key={value} value={value}>{value}</option>)}
+          </FieldSelect>
+        </div>
+        <div className="grid grid-cols-3 gap-2">
           <NumberInput label="高速" value={form.speed} onChange={(value) => update("speed", value)} />
           <NumberInput label="破甲" value={form.armorPierce} onChange={(value) => update("armorPierce", value)} />
           <NumberInput label="破魔" value={form.magicPierce} onChange={(value) => update("magicPierce", value)} />
-          <NumberInput label="附加成功" value={form.bonusSuccess} allowNegative onChange={(value) => update("bonusSuccess", value)} />
-          <NumberInput label="伤害上限" value={form.damageLimit} onChange={(value) => update("damageLimit", value)} />
         </div>
-        <div className="grid grid-cols-3 gap-2">
-          <label className="space-y-1.5">
-            <Label>加骰</Label>
-            <div className="relative">
-              <Select className="combat-select" value={form.explodeOn} onChange={(event) => update("explodeOn", toInt(event.target.value, 10))}>
-                {explodeOptions.map((value) => <option key={value} value={value}>{value}</option>)}
-              </Select>
-              <ChevronDown className="combat-select-icon" />
-            </div>
-          </label>
-          <label className="space-y-1.5">
-            <Label>血量伤害</Label>
-            <div className="relative">
-              <Select className="combat-select combat-select-danger" value={form.woundType} onChange={(event) => update("woundType", event.target.value as AttackForm["woundType"])}>
-                {damageTypes.map((type) => <option key={type}>{type}</option>)}
-              </Select>
-              <ChevronDown className="combat-select-icon" />
-            </div>
-          </label>
-          <label className="space-y-1.5">
-            <Label>伤害属性</Label>
-            <div className="relative">
-              <Select className="combat-select" value={form.damageKind} onChange={(event) => update("damageKind", event.target.value as CombatDamageKind)}>
-                {combatDamageKinds.map((kind) => <option key={kind.value} value={kind.value}>{kind.label}</option>)}
-              </Select>
-              <ChevronDown className="combat-select-icon" />
-            </div>
-          </label>
+        <div className="grid grid-cols-2 gap-2">
+          <FieldSelect label="伤害等级" value={form.woundType} onChange={(v) => update("woundType", v as AttackForm["woundType"])}>
+            {damageTypes.map((type) => <option key={type} value={type}>{type}</option>)}
+          </FieldSelect>
+          <FieldSelect label="伤害类型" value={form.damageKind} onChange={(v) => update("damageKind", v as CombatDamageKind)}>
+            {combatDamageKinds.map((kind) => <option key={kind.value} value={kind.value}>{kind.label}</option>)}
+          </FieldSelect>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <FieldSelect label="物理类型" value={form.physSubtype} onChange={(v) => update("physSubtype", v)}>
+            <option value="">无</option>
+            <option value="slashing">挥砍</option>
+            <option value="piercing">穿刺</option>
+            <option value="bludgeoning">钝击</option>
+          </FieldSelect>
+          <FieldSelect label="能量类型" value={form.energyType} onChange={(v) => update("energyType", v)}>
+            <option value="pure">纯能量</option>
+            <option value="fire">火焰</option>
+            <option value="cold">寒冰</option>
+            <option value="lightning">雷电</option>
+            <option value="corrosion">腐蚀</option>
+            <option value="light">光明</option>
+            <option value="dark">黑暗</option>
+            <option value="sonic">音波</option>
+            <option value="luminous">光能</option>
+          </FieldSelect>
         </div>
         <div className="flex flex-wrap gap-2">
           <Checkbox label="措手不及" checked={!!defenseDraft?.flatFooted} disabled={!defenseDraft} onChange={(event) => void updateDefenseFlag("flatFooted", event.target.checked)} />
           <Checkbox label="接触攻击" checked={!!defenseDraft?.touchAttack} disabled={!defenseDraft} onChange={(event) => void updateDefenseFlag("touchAttack", event.target.checked)} />
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Checkbox label="魔法" checked={form.magic} onChange={(event) => update("magic", event.target.checked)} />
+          <Checkbox label="神兵" checked={form.divine} onChange={(event) => update("divine", event.target.checked)} />
         </div>
         {result ? (
           <div className="rounded-md border border-border bg-background/70 p-3 text-sm">
@@ -863,7 +957,7 @@ function CustomDamageSection({ open, defenseDraft, onDefenseDraftChange, onDefen
             </div>
             {!result.miss && (
               <div className="mt-2 text-xs text-muted-foreground">
-                {`成功 ${result.finalSuccess} -> 伤害 ${result.rawDamage}${result.damageLimit > 0 ? ` -> 上限后 ${result.afterLimit}` : ""} -> 减免后 ${result.afterDR} -> 吸收后 ${result.afterAbsorb}`}
+                {`成功 ${result.finalSuccess} -> 伤害 ${result.rawDamage}${result.damageLimit > 0 ? ` -> 上限后 ${result.afterLimit}` : ""} -> 减免后 ${result.afterDR}（DR ${result.drEff}${result.drEff < result.drValue ? " 被穿透" : ""} / ER ${result.erEff}${result.erEff < result.erValue ? " 不匹配" : ""}）-> 吸收后 ${result.afterAbsorb}`}
               </div>
             )}
           </div>
@@ -909,6 +1003,16 @@ export default function App() {
   return (
     <main className="min-h-screen bg-background text-foreground">
       <div className="mx-auto max-w-[1560px] px-4 py-4 lg:px-6 lg:py-6">
+        <header className="mb-5 text-center">
+          <svg viewBox="0 0 40 36" className="mx-auto mb-2 h-7 w-6 text-amber-400/80" fill="none" stroke="currentColor" strokeWidth={1.1} aria-hidden="true"><circle cx="20" cy="11" r="7.5"/><circle cx="10.5" cy="22" r="7.5"/><circle cx="29.5" cy="22" r="7.5"/><path d="M20 18.5 V33"/></svg>
+          <h1 className="font-display text-3xl font-bold tracking-[0.14em] text-foreground">血棘苦修会秘典</h1>
+          <p className="font-cinzel mt-1 text-xs uppercase tracking-[0.3em] text-amber-300/80">Codex of the Bloodthorn Ascetic Order</p>
+          <div className="mt-3 flex items-center gap-3 text-amber-500/80" aria-hidden="true">
+            <div className="h-px flex-1 bg-gradient-to-r from-transparent to-amber-500/40" />
+            <svg viewBox="0 0 64 16" className="h-4 w-16" fill="currentColor"><rect x="0" y="7" width="64" height="1.5" /><polygon points="14,8 18,2 22,8" /><polygon points="30,8 34,14 38,8" /><polygon points="46,8 50,2 54,8" /></svg>
+            <div className="h-px flex-1 bg-gradient-to-l from-transparent to-amber-500/40" />
+          </div>
+        </header>
         <div className="min-w-0 content-wrap">
         {error && (
           <div className="mb-4 flex items-center justify-between rounded-lg border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
@@ -926,7 +1030,7 @@ export default function App() {
           <div className="space-y-4">
             <section id="dice" className="scroll-mt-5"><DicePanel result={latestDiceResult} onDice={pushDice} onError={setError} /></section>
             <Card>
-              <CardHeader><CardTitle>骰子记录</CardTitle></CardHeader>
+              <CardHeader><CardTitle className="flex items-center gap-2"><Scroll className="h-4 w-4 text-amber-400/70" />骰子记录<span className="font-cinzel ml-1 text-[10px] font-medium uppercase tracking-[0.2em] text-amber-300/55">Log</span></CardTitle></CardHeader>
               <CardContent>
                 <div className="max-h-[420px] space-y-2 overflow-y-auto pr-1">
                 {diceLog.length ? diceLog.map((entry, index) => (

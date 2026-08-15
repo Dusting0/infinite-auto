@@ -118,6 +118,10 @@ export interface AttackInput {
   isPhysical: boolean;
   damageKind: "physical" | "energy" | "mixed" | string;
   damageLimit: number;
+  magic?: boolean;
+  divine?: boolean;
+  physSubtype?: string;
+  energyType?: string;
 }
 
 export interface PoolBreakdown {
@@ -180,8 +184,10 @@ export interface AttackResult {
   finalDamage: number;
   drValue: number;
   drType: string;
+  drEff: number;
   erValue: number;
   erType: string;
+  erEff: number;
   absorbApplied: number;
   absorbType: string;
   summary: string;

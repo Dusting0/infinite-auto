@@ -4,23 +4,25 @@
 
 @layer base {
   :root {
-    --background: 225 35% 7%;
-    --foreground: 210 30% 96%;
-    --card: 222 31% 12%;
-    --card-foreground: 215 24% 93%;
-    --primary: 199 92% 48%;
-    --primary-foreground: 222 30% 8%;
-    --secondary: 218 27% 20%;
-    --secondary-foreground: 215 24% 92%;
-    --muted: 220 24% 17%;
-    --muted-foreground: 216 14% 67%;
-    --accent: 168 76% 27%;
-    --accent-foreground: 170 30% 96%;
-    --destructive: 349 78% 55%;
+    /* 灰烬苦修（B1）：暖灰近黑底 + 骨白文字 + 暗血红主色 + 古金纹饰 */
+    --background: 30 7% 6%;
+    --foreground: 40 14% 90%;
+    --card: 30 6% 10%;
+    --card-foreground: 40 16% 90%;
+    --primary: 350 45% 50%;
+    --primary-foreground: 350 30% 8%;
+    --secondary: 30 8% 16%;
+    --secondary-foreground: 40 16% 86%;
+    --muted: 30 8% 18%;
+    --muted-foreground: 30 6% 58%;
+    --accent: 40 44% 52%;
+    --accent-foreground: 30 30% 8%;
+    --destructive: 350 55% 40%;
     --destructive-foreground: 0 0% 100%;
-    --border: 215 28% 25%;
-    --input: 215 28% 25%;
-    --ring: 199 92% 48%;
+    --border: 32 9% 18%;
+    --input: 32 9% 18%;
+    --ring: 350 45% 50%;
+    --gold: 40 44% 52%;
     --radius: 0.5rem;
   }
 
@@ -36,9 +38,9 @@
     @apply bg-background text-foreground antialiased;
     margin: 0;
     min-width: 320px;
-    font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    font-family: "Cinzel", Georgia, "Songti SC", "Microsoft YaHei", serif;
     letter-spacing: 0;
-    background-image: radial-gradient(circle at 14% 2%, rgba(14, 116, 144, 0.16), transparent 30rem), radial-gradient(circle at 90% 15%, rgba(30, 64, 175, 0.10), transparent 34rem);
+    background-image: radial-gradient(circle at 14% 2%, hsl(350 45% 50% / .12), transparent 30rem), radial-gradient(circle at 90% 12%, hsl(40 44% 52% / .07), transparent 34rem);
     background-attachment: fixed;
   }
 
@@ -64,51 +66,70 @@
 }
 
 @layer components {
-  .section-label {
-    @apply text-[10px] font-semibold uppercase tracking-[0.18em] text-sky-300;
-  }
+  .section-label { @apply text-sm font-semibold; font-family: "Cinzel", Georgia, "Songti SC", serif; color: hsl(38 55% 46%); }
 
-  .font-display { font-family: Georgia, "Times New Roman", "Songti SC", serif; }
+  .font-display { font-family: "Cinzel", Georgia, "Songti SC", serif; }
+  .font-cinzel { font-family: "Cinzel", Georgia, "Songti SC", serif; }
   /* Layout responds to the content container's own width, not the viewport,
      so the browser's vertical/side tab strip (which steals ~200px of viewport
      width) no longer collapses the grid spuriously. */
   .content-wrap { container-type: inline-size; container-name: content; }
   .main-grid { @apply grid gap-5; }
-  .eyebrow { @apply text-[10px] font-bold uppercase tracking-[0.22em] text-sky-300; }
-  /* 扁平数值框：文案与数值同一行平齐展示，高度与 Select/Input 一致（h-9）。 */
-  .stat-pill { @apply flex h-9 items-center justify-between gap-1.5 rounded-md border border-border bg-background/70 px-2 text-left; }
+  .eyebrow { @apply text-[10px] font-bold uppercase tracking-[0.22em]; font-family: "Cinzel", Georgia, serif; color: hsl(var(--gold) / .85); }
+
+  /* 数值框/总览框：羊皮纸底 + 金内描边 */
+  .stat-pill { @apply flex h-9 items-center justify-between gap-1.5 rounded-md border border-border px-2 text-left; background: hsl(38 14% 12% / .55); box-shadow: inset 0 0 0 1px hsl(var(--gold) / .08); }
   .stat-pill strong { @apply text-sm font-semibold tabular-nums; }
-  .stat-pill-editable { @apply cursor-pointer transition-colors hover:border-sky-300/50 hover:bg-sky-400/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring; }
+  .stat-pill-editable { @apply cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring; }
+  .stat-pill-editable:hover { border-color: hsl(var(--gold) / .4); background: hsl(38 14% 14% / .6); }
   .stat-pill-editable strong { color: inherit; }
-  .number-field-trigger { @apply flex h-9 w-full items-center justify-between gap-1.5 rounded-md border border-input bg-background px-2 text-left transition-colors hover:border-sky-300/50 hover:bg-sky-400/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring; }
+
+  /* 总览预览框：放大、池色底色 tint + 大数值，与下方输入框拉开层级。三池=血红/琥珀/古金。 */
+  .stat-pill-preview { @apply flex h-16 flex-col justify-center gap-1 rounded-lg border px-3 py-2; }
+  .stat-pill-preview strong { @apply text-2xl font-bold tabular-nums; }
+  .preview-blue { border-color: hsl(350 50% 56% / .4); background: hsl(350 50% 56% / .1); }
+  .preview-blue strong { color: hsl(350 55% 66%); }
+  .preview-warn { border-color: hsl(38 80% 52% / .4); background: hsl(38 80% 52% / .1); }
+  .preview-warn strong { color: hsl(38 84% 62%); }
+  .preview-good { border-color: hsl(160 55% 45% / .4); background: hsl(160 55% 45% / .1); }
+  .preview-good strong { color: hsl(160 60% 55%); }
+
+  .number-field-trigger { @apply flex h-9 w-full items-center justify-between gap-1.5 rounded-md border border-input px-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring; background: hsl(38 14% 12% / .55); box-shadow: inset 0 0 0 1px hsl(var(--gold) / .08); }
+  .number-field-trigger:hover { border-color: hsl(var(--gold) / .4); background: hsl(38 14% 14% / .6); }
   .number-field-trigger strong { @apply text-sm font-semibold tabular-nums text-foreground; }
 
-  /* 失效态：灰框 + 数值划线（措手不及/未格挡/接触攻击/未掩蔽）；增强态：天蓝描边（全力防御基础翻倍）。 */
-  .field-inactive { border-color: hsl(216 12% 32%); background: hsl(216 14% 13%); }
-  .field-inactive:hover { border-color: hsl(216 12% 42%); background: hsl(216 14% 16%); }
-  .field-inactive strong { color: hsl(216 14% 56%); text-decoration: line-through; text-decoration-thickness: 1.5px; }
-  .field-boosted { border-color: hsl(199 92% 48% / .6); background: hsl(199 92% 48% / .07); }
-  .field-boosted:hover { border-color: hsl(199 92% 55% / .85); background: hsl(199 92% 48% / .12); }
-  .field-boosted strong { color: hsl(199 92% 64%); }
-  .tag-inactive { font-size: 10px; font-weight: 700; padding: 0 5px; border-radius: 999px; color: hsl(216 14% 62%); background: hsl(216 14% 24% / .6); border: 1px solid hsl(216 14% 38% / .6); }
-  .tag-boosted { font-size: 10px; font-weight: 700; padding: 0 5px; border-radius: 999px; color: hsl(199 92% 68%); background: hsl(199 92% 48% / .14); border: 1px solid hsl(199 92% 48% / .4); }
-  .number-editor-backdrop { @apply fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm; }
-  .number-editor { @apply w-full max-w-sm rounded-2xl border border-sky-300/20 bg-card p-5 shadow-2xl shadow-black/50; }
+  /* 失效态：暗红框 + 数值划线；增强态：古金描边 */
+  .field-inactive { border-color: hsl(350 45% 38%); background: hsl(350 30% 13%); }
+  .field-inactive:hover { border-color: hsl(350 50% 45%); background: hsl(350 30% 16%); }
+  .field-inactive strong { color: hsl(350 45% 58%); text-decoration: line-through; text-decoration-thickness: 1.5px; }
+  .field-boosted { border-color: hsl(var(--gold) / .5); background: hsl(var(--gold) / .07); }
+  .field-boosted:hover { border-color: hsl(var(--gold) / .7); background: hsl(var(--gold) / .1); }
+  .field-boosted strong { color: hsl(var(--gold)); }
+  .tag-inactive { font-size: 10px; font-weight: 700; padding: 0 5px; border-radius: 999px; color: hsl(350 50% 64%); background: hsl(350 40% 24% / .6); border: 1px solid hsl(350 45% 38% / .6); }
+  .tag-boosted { font-size: 10px; font-weight: 700; padding: 0 5px; border-radius: 999px; color: hsl(var(--gold)); background: hsl(var(--gold) / .14); border: 1px solid hsl(var(--gold) / .4); }
+
+  /* FieldSelect：羊皮纸底 + 金内描边 + 哥特箭头（非原生） */
+  .fieldsel { @apply relative flex h-9 w-full items-center gap-1.5 rounded-md border border-input px-2 text-left transition-colors; background: hsl(38 14% 12% / .55); box-shadow: inset 0 0 0 1px hsl(var(--gold) / .08); }
+  .fieldsel:hover { border-color: hsl(var(--gold) / .4); background: hsl(38 14% 14% / .6); }
+  .fieldsel-select { @apply h-full min-w-0 flex-1 border-0 bg-transparent text-right text-sm font-semibold text-foreground outline-none; appearance: none; padding-right: 1.25rem; }
+  .fieldsel-chev { @apply pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2; color: hsl(var(--gold) / .8); }
+
+  .number-editor-backdrop { @apply fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm; }
+  .number-editor { @apply w-full max-w-sm rounded-2xl border bg-card p-5 shadow-2xl shadow-black/50; border-color: hsl(var(--gold) / .25); }
   .number-stepper { @apply mt-6 grid grid-cols-[56px_1fr_56px] items-center gap-2; }
-  .number-stepper button { @apply flex h-14 items-center justify-center rounded-xl border border-border bg-secondary text-sky-200 transition-colors hover:border-sky-300/50 hover:bg-sky-400/15; }
-  .number-stepper input { @apply h-14 min-w-0 rounded-xl border border-sky-300/25 bg-background text-center text-2xl font-semibold tabular-nums text-foreground outline-none ring-0 transition-colors focus:border-sky-300 focus:ring-2 focus:ring-sky-400/20; }
+  .number-stepper button { @apply flex h-14 items-center justify-center rounded-xl border border-border bg-secondary transition-colors; color: hsl(var(--gold) / .9); }
+  .number-stepper button:hover { border-color: hsl(var(--gold) / .4); background: hsl(var(--gold) / .1); }
+  .number-stepper input { @apply h-14 min-w-0 rounded-xl bg-background text-center text-2xl font-semibold tabular-nums text-foreground outline-none transition-colors; border: 1px solid hsl(var(--gold) / .2); }
+  .number-stepper input:focus { border-color: hsl(var(--gold)); box-shadow: 0 0 0 2px hsl(var(--gold) / .2); }
   .icon-dismiss { @apply flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-background text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground; }
   .reset-dialog { @apply w-full max-w-md rounded-2xl border border-rose-400/25 bg-card p-6 shadow-2xl shadow-black/50; }
   .reset-dialog-icon { @apply mb-4 flex h-12 w-12 items-center justify-center rounded-2xl border border-rose-300/25 bg-rose-500/15 text-rose-300; }
-  .long-rest-dialog { @apply w-full max-w-md rounded-2xl border border-sky-300/20 bg-card p-6 shadow-2xl shadow-black/50; }
-  .long-rest-dialog-icon { @apply mb-4 flex h-12 w-12 items-center justify-center rounded-2xl border border-sky-300/25 bg-sky-400/15 text-sky-300; }
-  .long-rest-option { @apply flex flex-col items-start gap-1 rounded-xl border border-border bg-background/70 p-4 text-left transition-all hover:-translate-y-0.5 hover:border-sky-300/50 hover:bg-sky-400/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring; }
+  .long-rest-dialog { @apply w-full max-w-md rounded-2xl border bg-card p-6 shadow-2xl shadow-black/50; border-color: hsl(var(--gold) / .25); }
+  .long-rest-dialog-icon { @apply mb-4 flex h-12 w-12 items-center justify-center rounded-2xl; border: 1px solid hsl(var(--gold) / .25); background: hsl(var(--gold) / .12); color: hsl(var(--gold)); }
+  .long-rest-option { @apply flex flex-col items-start gap-1 rounded-xl border border-border bg-background/70 p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring; }
+  .long-rest-option:hover { border-color: hsl(var(--gold) / .4); background: hsl(var(--gold) / .06); }
   .long-rest-option span { @apply text-xs text-muted-foreground; }
-  .long-rest-option strong { @apply text-sm font-semibold text-sky-200; }
-  .combat-select { @apply h-9 appearance-none rounded-md border-sky-300/20 bg-sky-400/[0.06] pr-10 font-semibold text-sky-100 shadow-inner shadow-sky-950/20 transition-colors hover:border-sky-300/50 hover:bg-sky-400/[0.12] focus:border-sky-300; }
-  .combat-select-danger { @apply border-rose-300/20 bg-rose-400/[0.06] text-rose-100 hover:border-rose-300/50 hover:bg-rose-400/[0.12] focus:border-rose-300; }
-  .combat-select-icon { @apply pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-sky-300; }
-  .combat-select-danger + .combat-select-icon { @apply text-rose-300; }
+  .long-rest-option strong { @apply text-sm font-semibold; color: hsl(var(--gold) / .9); }
 }
 
 /* Main 3-column grid activates on the content area's own width, not the

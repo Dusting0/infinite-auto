@@ -216,8 +216,107 @@ func TestMixedDamageUsesLowerReduction(t *testing.T) {
 	if r.AfterDR != 8 {
 		t.Fatalf("混合伤害应吃较低减免2，减免后期望8，得%d", r.AfterDR)
 	}
+	if r.AbsorbApplied != 0 || r.FinalDamage != 8 {
+		t.Fatalf("混合伤害下物理吸收不应生效，得 absorb=%d final=%d", r.AbsorbApplied, r.FinalDamage)
+	}
+}
+
+// 混合伤害 + 全伤害吸收：吸收生效（与物理吸收对混合不生效对照）。
+func TestMixedDamageWithAllAbsorb(t *testing.T) {
+	p := NewPreset("t")
+	p.DRValue = 5
+	p.ERValue = 2
+	p.DamageAbsorb = 3
+	p.DamageAbsorbType = "all"
+	r := p.ResolveAttack(AttackInput{AttackDP: 100, BonusSuccess: 30, DamageKind: "mixed", DamageLimit: 10})
+	if r.AfterDR != 8 {
+		t.Fatalf("减免后期望8，得%d", r.AfterDR)
+	}
 	if r.AbsorbApplied != 3 || r.FinalDamage != 5 {
-		t.Fatalf("混合伤害应触发物理吸收3，得 absorb=%d final=%d", r.AbsorbApplied, r.FinalDamage)
+		t.Fatalf("全伤害吸收对混合应生效3，得 absorb=%d final=%d", r.AbsorbApplied, r.FinalDamage)
+	}
+}
+
+// 能量伤害 + 能量吸收：吸收生效。
+func TestEnergyDamageWithEnergyAbsorb(t *testing.T) {
+	p := NewPreset("t")
+	p.DamageAbsorb = 3
+	p.DamageAbsorbType = "energy"
+	r := p.ResolveAttack(AttackInput{AttackDP: 100, BonusSuccess: 30, DamageKind: "energy", EnergyType: "fire", DamageLimit: 10})
+	if r.AbsorbApplied != 3 || r.FinalDamage != 7 {
+		t.Fatalf("能量吸收对能量伤害应生效3，得 absorb=%d final=%d", r.AbsorbApplied, r.FinalDamage)
+	}
+}
+
+// 能量伤害 + 全伤害吸收：吸收生效。
+func TestEnergyDamageWithAllAbsorb(t *testing.T) {
+	p := NewPreset("t")
+	p.DamageAbsorb = 3
+	p.DamageAbsorbType = "all"
+	r := p.ResolveAttack(AttackInput{AttackDP: 100, BonusSuccess: 30, DamageKind: "energy", EnergyType: "fire", DamageLimit: 10})
+	if r.AbsorbApplied != 3 || r.FinalDamage != 7 {
+		t.Fatalf("全伤害吸收对能量伤害应生效3，得 absorb=%d final=%d", r.AbsorbApplied, r.FinalDamage)
+	}
+}
+
+// DR/魔法：攻击带【魔法】特性时穿透，否则生效。
+func TestDRMagicPiercedByMagic(t *testing.T) {
+	p := NewPreset("t")
+	p.DRValue = 5
+	p.DRType = "magic"
+	r := p.ResolveAttack(AttackInput{AttackDP: 100, BonusSuccess: 30, IsPhysical: true, Magic: true, DamageLimit: 10})
+	if r.DREff != 0 || r.AfterDR != 10 {
+		t.Fatalf("魔法攻击应穿透 DR/魔法，得 drEff=%d afterDR=%d", r.DREff, r.AfterDR)
+	}
+	r2 := p.ResolveAttack(AttackInput{AttackDP: 100, BonusSuccess: 30, IsPhysical: true, DamageLimit: 10})
+	if r2.DREff != 5 || r2.AfterDR != 5 {
+		t.Fatalf("非魔法攻击不应穿透 DR/魔法，得 drEff=%d afterDR=%d", r2.DREff, r2.AfterDR)
+	}
+}
+
+// DR/神兵：攻击带【神兵】特性时穿透。
+func TestDRDivinePiercedByDivine(t *testing.T) {
+	p := NewPreset("t")
+	p.DRValue = 5
+	p.DRType = "divine"
+	r := p.ResolveAttack(AttackInput{AttackDP: 100, BonusSuccess: 30, IsPhysical: true, Divine: true, DamageLimit: 10})
+	if r.DREff != 0 || r.AfterDR != 10 {
+		t.Fatalf("神兵攻击应穿透 DR/神兵，得 drEff=%d afterDR=%d", r.DREff, r.AfterDR)
+	}
+}
+
+// DR/穿刺：物理子类型匹配时穿透，不匹配则 DR 生效。
+func TestDRPiercingByPhysSubtype(t *testing.T) {
+	p := NewPreset("t")
+	p.DRValue = 5
+	p.DRType = "piercing"
+	r := p.ResolveAttack(AttackInput{AttackDP: 100, BonusSuccess: 30, IsPhysical: true, PhysSubtype: "piercing", DamageLimit: 10})
+	if r.DREff != 0 || r.AfterDR != 10 {
+		t.Fatalf("穿刺攻击应穿透 DR/穿刺，得 drEff=%d afterDR=%d", r.DREff, r.AfterDR)
+	}
+	r2 := p.ResolveAttack(AttackInput{AttackDP: 100, BonusSuccess: 30, IsPhysical: true, PhysSubtype: "slashing", DamageLimit: 10})
+	if r2.DREff != 5 || r2.AfterDR != 5 {
+		t.Fatalf("挥砍攻击不应穿透 DR/穿刺，得 drEff=%d afterDR=%d", r2.DREff, r2.AfterDR)
+	}
+}
+
+// 能量抗力按子类型匹配：火焰抗力对火焰生效、对雷电不生效；全能量抗力对任意生效。
+func TestERSubtypeMatching(t *testing.T) {
+	p := NewPreset("t")
+	p.ERValue = 4
+	p.ERType = "fire"
+	rFire := p.ResolveAttack(AttackInput{AttackDP: 100, BonusSuccess: 30, DamageKind: "energy", EnergyType: "fire", DamageLimit: 10})
+	if rFire.EREff != 4 || rFire.AfterDR != 6 {
+		t.Fatalf("火焰抗力应对火焰能量生效4，得 erEff=%d afterDR=%d", rFire.EREff, rFire.AfterDR)
+	}
+	rLightning := p.ResolveAttack(AttackInput{AttackDP: 100, BonusSuccess: 30, DamageKind: "energy", EnergyType: "lightning", DamageLimit: 10})
+	if rLightning.EREff != 0 || rLightning.AfterDR != 10 {
+		t.Fatalf("火焰抗力不应对雷电能量生效，得 erEff=%d afterDR=%d", rLightning.EREff, rLightning.AfterDR)
+	}
+	p.ERType = "all"
+	rAll := p.ResolveAttack(AttackInput{AttackDP: 100, BonusSuccess: 30, DamageKind: "energy", EnergyType: "lightning", DamageLimit: 10})
+	if rAll.EREff != 4 || rAll.AfterDR != 6 {
+		t.Fatalf("全能量抗力应对雷电生效4，得 erEff=%d afterDR=%d", rAll.EREff, rAll.AfterDR)
 	}
 }
 

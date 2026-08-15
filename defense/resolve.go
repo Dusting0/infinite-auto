@@ -16,6 +16,12 @@ type AttackInput struct {
 	IsPhysical   bool   `json:"isPhysical"`   // 兼容旧前端：true=物理，false=能量
 	DamageKind   string `json:"damageKind"`   // physical | energy | mixed
 	DamageLimit  int    `json:"damageLimit"`  // 伤害上限；≤0 不生效
+
+	// 攻击方穿透声明（用于 DR /来源 与 ER 子类型匹配）
+	Magic       bool   `json:"magic"`       // 带【魔法】特性 → 穿透 DR/魔法
+	Divine      bool   `json:"divine"`      // 带【神兵】特性 → 穿透 DR/神兵
+	PhysSubtype string `json:"physSubtype"` // 物理子类型 slashing|piercing|bludgeoning|"" → 穿透 DR/类型
+	EnergyType  string `json:"energyType"`  // 能量子类型（与 ER 子类型匹配）
 }
 
 // PoolBreakdown 击破前后分项（便于 UI 展示）
@@ -89,8 +95,10 @@ type AttackResult struct {
 	FinalDamage   int    `json:"finalDamage"`
 	DRValue       int    `json:"drValue"`
 	DRType        string `json:"drType"`
+	DREff         int    `json:"drEff"` // 穿透后的有效 DR
 	ERValue       int    `json:"erValue"`
 	ERType        string `json:"erType"`
+	EREff         int    `json:"erEff"` // 子类型匹配后的有效 ER
 	AbsorbApplied int    `json:"absorbApplied"`
 	AbsorbType    string `json:"absorbType"`
 	Summary       string `json:"summary"`
@@ -145,15 +153,40 @@ func damageKind(in AttackInput) string {
 	return "energy"
 }
 
-func damageReduction(kind string, drValue, erValue int) int {
-	switch kind {
-	case "physical":
-		return drValue
-	case "mixed":
-		return min(drValue, erValue)
-	default:
-		return erValue
+// drPierced 判断攻击是否穿透 DR 的 /来源 弱点。
+// ""(DR/-) 与未知值永不被穿透。
+func drPierced(drType string, in AttackInput) bool {
+	switch drType {
+	case "magic":
+		return in.Magic
+	case "divine":
+		return in.Divine
+	case "slashing":
+		return in.PhysSubtype == "slashing"
+	case "piercing":
+		return in.PhysSubtype == "piercing"
+	case "bludgeoning":
+		return in.PhysSubtype == "bludgeoning"
 	}
+	return false
+}
+
+// erApplies 判断能量抗力是否对该能量类型生效；all/"" 对所有能量生效。
+func erApplies(erType, energyType string) bool {
+	return erType == "all" || erType == "" || erType == energyType
+}
+
+// absorbApplies 判断伤害吸收是否对该伤害类型生效；混合仅 all 生效。
+func absorbApplies(absorbType, kind string) bool {
+	switch absorbType {
+	case "all":
+		return true
+	case "physical":
+		return kind == "physical"
+	case "energy":
+		return kind == "energy"
+	}
+	return false
 }
 
 // ResolveAttack 根据当前防御预设结算一次攻击，不修改预设、不写血量。
@@ -289,20 +322,37 @@ func (p *Preset) ResolveAttack(in AttackInput) AttackResult {
 	}
 	res.AfterLimit = capped
 
-	// 物理 → DR；能量 → ER；混合 → 吃较低的减免，保留更高伤害。
-	reduction := damageReduction(kind, p.DRValue, p.ERValue)
+	// DR 有效值（物理/混合才计入；被 /来源 穿透则 0）
+	drEff := 0
+	if kind != "energy" && !drPierced(p.DRType, in) {
+		drEff = p.DRValue
+	}
+	// ER 有效值（能量/混合才计入；子类型不匹配则 0）
+	erEff := 0
+	if kind != "physical" && erApplies(p.ERType, in.EnergyType) {
+		erEff = p.ERValue
+	}
+	res.DREff = drEff
+	res.EREff = erEff
+
+	// 减免：物理→DR；能量→ER；混合→min(DR,ER)（伤害方取优，残值取最大）
+	reduction := drEff
+	switch kind {
+	case "energy":
+		reduction = erEff
+	case "mixed":
+		reduction = min(drEff, erEff)
+	}
 	reduced := capped - reduction
 	if reduced < 0 {
 		reduced = 0
 	}
 	res.AfterDR = reduced
 
-	// 伤害吸收：全伤害始终；物理吸收对物理和混合伤害生效。
+	// 伤害吸收：按类型；混合仅 all 生效（物理/能量吸收对混合不生效）。
 	absorb := 0
-	if p.DamageAbsorb > 0 {
-		if p.DamageAbsorbType == "all" || (p.DamageAbsorbType == "physical" && kind != "energy") {
-			absorb = p.DamageAbsorb
-		}
+	if p.DamageAbsorb > 0 && absorbApplies(p.DamageAbsorbType, kind) {
+		absorb = p.DamageAbsorb
 	}
 	if absorb > reduced {
 		absorb = reduced
