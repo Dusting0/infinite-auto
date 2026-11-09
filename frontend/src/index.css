@@ -130,6 +130,33 @@
   .long-rest-option:hover { border-color: hsl(var(--gold) / .4); background: hsl(var(--gold) / .06); }
   .long-rest-option span { @apply text-xs text-muted-foreground; }
   .long-rest-option strong { @apply text-sm font-semibold; color: hsl(var(--gold) / .9); }
+
+  /* 全局预设页签（方案 A：秘典页首正下方）。当前页金线压顶，双击重命名，× 删除，＋ 克隆新建 */
+  .preset-tabs { @apply relative mb-5 flex flex-wrap items-stretch gap-1.5 border-b border-border; }
+  .ptab { @apply flex items-center gap-1 rounded-t-lg border border-transparent px-3 py-1.5 text-xs text-muted-foreground transition-colors; }
+  .ptab.active { background: hsl(var(--gold) / .07); border-color: hsl(var(--border)); color: hsl(var(--foreground)); box-shadow: inset 0 2px 0 hsl(var(--gold)); }
+  .ptab:not(.active):hover { @apply text-foreground; background: hsl(38 14% 14% / .6); }
+  .ptab-btn { @apply min-w-0 truncate; }
+  .ptab-btn:focus-visible { @apply outline-none ring-2 ring-ring rounded-sm; }
+  .ptab-x { @apply rounded-sm px-0.5 text-xs leading-none transition-colors; color: hsl(350 45% 58% / .65); }
+  .ptab-x:hover { color: hsl(350 55% 66%); background: hsl(350 45% 30% / .3); }
+  .ptab-rename { @apply h-6 w-24 rounded-sm border bg-background px-1.5 text-xs text-foreground outline-none; border-color: hsl(var(--gold) / .5); }
+  .ptab-add { @apply self-center rounded-t-lg border border-dashed px-2.5 py-1.5 text-sm leading-none transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring; border-color: hsl(var(--gold) / .35); color: hsl(var(--gold) / .85); }
+  .ptab-add:hover { background: hsl(var(--gold) / .1); }
+
+  /* 攻击预设页签（自定义伤害模块内），小号胶囊版 */
+  .attack-tabs { @apply flex flex-wrap items-center gap-1.5; }
+  .atab { @apply flex items-center gap-1 rounded-md border border-border bg-background/60 py-1 pl-2 pr-1 text-xs transition-colors; }
+  .atab.active { border-color: hsl(var(--gold) / .5); background: hsl(var(--gold) / .08); }
+  .atab-btn { @apply min-w-0 truncate text-xs text-muted-foreground transition-colors; }
+  .atab.active .atab-btn { @apply font-semibold text-foreground; }
+  .atab-btn:hover { color: hsl(var(--foreground)); }
+  .atab-btn:focus-visible { @apply outline-none ring-2 ring-ring rounded-sm; }
+  .atab-x { @apply rounded-sm px-0.5 text-xs leading-none transition-colors; color: hsl(350 45% 58% / .65); }
+  .atab-x:hover { color: hsl(350 55% 66%); background: hsl(350 45% 30% / .3); }
+  .atab-rename { @apply h-6 w-20 rounded-sm border bg-background px-1.5 text-xs text-foreground outline-none; border-color: hsl(var(--gold) / .5); }
+  .atab-add { @apply flex items-center rounded-md border border-dashed px-2 py-1 text-sm leading-none transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring; border-color: hsl(var(--gold) / .35); color: hsl(var(--gold) / .85); }
+  .atab-add:hover { background: hsl(var(--gold) / .1); }
 }
 
 /* Main 3-column grid activates on the content area's own width, not the
