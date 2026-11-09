@@ -1,7 +1,21 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { AlertTriangle, CheckCircle2, ChevronDown, CircleSlash, Coffee, Dices, EyeOff, HeartPulse, Hourglass, Minus, Moon, Pencil, Plus, RotateCcw, Scroll, Shield, Skull, Trash2, X } from "lucide-react";
 import { getJson, postJson } from "./lib/api";
 import { toInt } from "./lib/utils";
+import {
+  defaultAttackForm,
+  defaultDice,
+  defaultSaves,
+  loadStore,
+  saveStore,
+  uid,
+  type AttackForm,
+  type AttackPreset,
+  type DiceState,
+  type GlobalPreset,
+  type PresetStore,
+  type SavesState,
+} from "./lib/presets";
 import type {
   AttackResult,
   DefensePreset,
@@ -40,39 +54,6 @@ const hpStatusMeta: Record<string, { icon: typeof HeartPulse; tone: string }> = 
   dead: { icon: Skull, tone: "text-rose-300" },
   over: { icon: AlertTriangle, tone: "text-amber-300" },
   unset: { icon: CircleSlash, tone: "text-muted-foreground" },
-};
-
-type CombatDamageKind = (typeof combatDamageKinds)[number]["value"];
-type AttackForm = {
-  attackDP: number;
-  speed: number;
-  armorPierce: number;
-  magicPierce: number;
-  explodeOn: number;
-  bonusSuccess: number;
-  damageKind: CombatDamageKind;
-  damageLimit: number;
-  woundType: (typeof damageTypes)[number];
-  magic: boolean;
-  divine: boolean;
-  physSubtype: string;
-  energyType: string;
-};
-
-const defaultAttackForm: AttackForm = {
-  attackDP: 8,
-  speed: 0,
-  armorPierce: 0,
-  magicPierce: 0,
-  explodeOn: 10,
-  bonusSuccess: 0,
-  damageKind: "physical",
-  damageLimit: 0,
-  woundType: "严重",
-  magic: false,
-  divine: false,
-  physSubtype: "",
-  energyType: "pure",
 };
 
 const emptyHp: HpSnapshot = {
@@ -397,7 +378,7 @@ function DiceResultView({ result, compact = false }: { result?: DiceResult; comp
   );
 }
 
-function HpPanel({ hp, onHp, onError, defenseDraft, onDefenseDraftChange, onDefense, onDice }: { hp: HpSnapshot; onHp: (hp: HpSnapshot) => void; onError: (error: string) => void; defenseDraft?: DefensePreset; onDefenseDraftChange: (draft: DefensePreset) => void; onDefense: (snapshot: DefenseSnapshot) => void; onDice: (result: DiceResult, source: string) => void }) {
+function HpPanel({ hp, onHp, onError, defenseDraft, onDefenseDraftChange, onDefense, onDice, attacks, activeAttackId, onAttacksChange, onActiveAttackChange }: { hp: HpSnapshot; onHp: (hp: HpSnapshot) => void; onError: (error: string) => void; defenseDraft?: DefensePreset; onDefenseDraftChange: (draft: DefensePreset) => void; onDefense: (snapshot: DefenseSnapshot) => void; onDice: (result: DiceResult, source: string) => void; attacks: AttackPreset[]; activeAttackId: string; onAttacksChange: (attacks: AttackPreset[]) => void; onActiveAttackChange: (id: string) => void }) {
   const [damageAmount, setDamageAmount] = useState(1);
   const [damageType, setDamageType] = useState<(typeof damageTypes)[number]>("严重");
   const [resetOpen, setResetOpen] = useState(false);
@@ -501,7 +482,7 @@ function HpPanel({ hp, onHp, onError, defenseDraft, onDefenseDraftChange, onDefe
           <Button variant="gold" onClick={applyDamage}>应用</Button>
         </div>
 
-        <CustomDamageSection open={customOpen} defenseDraft={defenseDraft} onDefenseDraftChange={onDefenseDraftChange} onDefense={onDefense} onDice={onDice} onError={onError} onResolved={(amount, type) => { setDamageAmount(amount); setDamageType(type); }} />
+        <CustomDamageSection open={customOpen} defenseDraft={defenseDraft} onDefenseDraftChange={onDefenseDraftChange} onDefense={onDefense} onDice={onDice} onError={onError} onResolved={(amount, type) => { setDamageAmount(amount); setDamageType(type); }} attacks={attacks} activeAttackId={activeAttackId} onAttacksChange={onAttacksChange} onActiveAttackChange={onActiveAttackChange} />
 
       </CardContent>
       {longRestOpen && (
@@ -747,14 +728,10 @@ function DefensePanel({ snapshot, draft, onDraftChange, onDefense, onError }: { 
   );
 }
 
-function DicePanel({ result, onDice, onError }: { result?: DiceResult; onDice: (result: DiceResult, source: string) => void; onError: (error: string) => void }) {
-  const [dp, setDp] = useState(5);
-  const [bonus, setBonus] = useState(0);
-  const [explodeOn, setExplodeOn] = useState(10);
-
-  const roll = async (source = "掷骰", rollDp = dp, rollBonus = bonus, rollExplode = explodeOn) => {
+function DicePanel({ dice, onDiceChange, result, onDice, onError }: { dice: DiceState; onDiceChange: (dice: DiceState) => void; result?: DiceResult; onDice: (result: DiceResult, source: string) => void; onError: (error: string) => void }) {
+  const roll = async (source = "掷骰") => {
     try {
-      const next = await postJson<DiceResult>("/api/dice/roll", { dp: rollDp, explodeOn: rollExplode, bonus: rollBonus });
+      const next = await postJson<DiceResult>("/api/dice/roll", { dp: dice.dp, explodeOn: dice.explodeOn, bonus: dice.bonus });
       onDice(next, source);
       return next;
     } catch (error) {
@@ -770,9 +747,9 @@ function DicePanel({ result, onDice, onError }: { result?: DiceResult; onDice: (
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid grid-cols-[1fr_1fr_96px] items-end gap-2">
-          <NumberInput label="DP" value={dp} allowNegative onChange={setDp} />
-          <NumberInput label="附加成功" value={bonus} allowNegative onChange={setBonus} />
-          <FieldSelect label="加骰" value={String(explodeOn)} onChange={(v) => setExplodeOn(toInt(v, 10))}>
+          <NumberInput label="DP" value={dice.dp} allowNegative onChange={(value) => onDiceChange({ ...dice, dp: value })} />
+          <NumberInput label="附加成功" value={dice.bonus} allowNegative onChange={(value) => onDiceChange({ ...dice, bonus: value })} />
+          <FieldSelect label="加骰" value={String(dice.explodeOn)} onChange={(v) => onDiceChange({ ...dice, explodeOn: toInt(v, 10) })}>
             {explodeOptions.map((value) => <option key={value} value={value}>{value}</option>)}
           </FieldSelect>
         </div>
@@ -782,14 +759,15 @@ function DicePanel({ result, onDice, onError }: { result?: DiceResult; onDice: (
   );
 }
 
-function SavesPanel({ onDice, onError }: { onDice: (result: DiceResult, source: string) => void; onError: (error: string) => void }) {
-  const [saves, setSaves] = useState({ fort: { dp: 5, bonus: 0, out: "-" }, ref: { dp: 5, bonus: 0, out: "-" }, will: { dp: 5, bonus: 0, out: "-" } });
-
-  const rollSave = async (kind: keyof typeof saves, label: string) => {
+// SavesPanel：三豁免。状态由 App 持有（随全局预设快照/还原）。
+// 「临时加值」是三项豁免共用的情境修正：检定时直接加在有效 DP 上
+// （有效 DP = DP + 临时加值，多骰多成功），一直生效直到手动改回 0。
+function SavesPanel({ saves, temp, onSavesChange, onTempChange, onDice, onError }: { saves: SavesState; temp: number; onSavesChange: (saves: SavesState) => void; onTempChange: (value: number) => void; onDice: (result: DiceResult, source: string) => void; onError: (error: string) => void }) {
+  const rollSave = async (kind: keyof SavesState, label: string) => {
     try {
-      const next = await postJson<DiceResult>("/api/dice/roll", { dp: saves[kind].dp, explodeOn: 10, bonus: saves[kind].bonus });
+      const next = await postJson<DiceResult>("/api/dice/roll", { dp: saves[kind].dp + temp, explodeOn: 10, bonus: saves[kind].bonus });
       onDice(next, `${label}豁免`);
-      setSaves((prev) => ({ ...prev, [kind]: { ...prev[kind], out: next.criticalFailure ? "大失败" : String(next.finalSuccess) } }));
+      onSavesChange({ ...saves, [kind]: { ...saves[kind], out: next.criticalFailure ? "大失败" : String(next.finalSuccess) } });
     } catch (error) {
       onError(error instanceof Error ? error.message : String(error));
     }
@@ -799,6 +777,9 @@ function SavesPanel({ onDice, onError }: { onDice: (result: DiceResult, source: 
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2"><Hourglass className="h-4 w-4 text-amber-400/70" />三豁免<span className="font-cinzel ml-1 text-[10px] font-medium uppercase tracking-[0.2em] text-amber-300/55">Saves</span></CardTitle>
+        <div className="w-32">
+          <NumberInput label="临时加值" value={temp} allowNegative icon={IcoCrossPattee} onChange={onTempChange} />
+        </div>
       </CardHeader>
       <CardContent className="space-y-2">
         {([
@@ -808,8 +789,8 @@ function SavesPanel({ onDice, onError }: { onDice: (result: DiceResult, source: 
         ] as const).map(([kind, label]) => (
           <div key={kind} className="grid grid-cols-[48px_1fr_1.4fr_auto] items-center gap-2">
             <div className="text-sm font-semibold text-amber-400/70">{label}</div>
-            <NumberInput label="DP" value={saves[kind].dp} allowNegative onChange={(value) => setSaves((prev) => ({ ...prev, [kind]: { ...prev[kind], dp: value } }))} />
-            <NumberInput label="附加成功" value={saves[kind].bonus} allowNegative onChange={(value) => setSaves((prev) => ({ ...prev, [kind]: { ...prev[kind], bonus: value } }))} />
+            <NumberInput label="DP" value={saves[kind].dp} displayValue={temp ? saves[kind].dp + temp : undefined} allowNegative onChange={(value) => onSavesChange({ ...saves, [kind]: { ...saves[kind], dp: value } })} />
+            <NumberInput label="附加成功" value={saves[kind].bonus} allowNegative onChange={(value) => onSavesChange({ ...saves, [kind]: { ...saves[kind], bonus: value } })} />
             <div className="flex items-center gap-1">
               <Button variant="secondary" onClick={() => rollSave(kind, label)}>检定</Button>
               <span className="min-w-[3rem] text-right text-sm font-bold text-amber-400/80">{saves[kind].out}</span>
@@ -821,14 +802,46 @@ function SavesPanel({ onDice, onError }: { onDice: (result: DiceResult, source: 
   );
 }
 
-function CustomDamageSection({ open, defenseDraft, onDefenseDraftChange, onDefense, onDice, onError, onResolved }: { open: boolean; defenseDraft?: DefensePreset; onDefenseDraftChange: (draft: DefensePreset) => void; onDefense: (snapshot: DefenseSnapshot) => void; onDice: (result: DiceResult, source: string) => void; onError: (error: string) => void; onResolved?: (amount: number, type: (typeof damageTypes)[number]) => void }) {
-  const [form, setForm] = useState<AttackForm>(defaultAttackForm);
+// CustomDamageSection：自定义伤害结算，支持多套攻击预设（多 Tab）。
+// 每套预设 = 名字 + 完整 AttackForm 快照；攻击预设列表由 App 持有并随全局预设记忆。
+function CustomDamageSection({ open, defenseDraft, onDefenseDraftChange, onDefense, onDice, onError, onResolved, attacks, activeAttackId, onAttacksChange, onActiveAttackChange }: { open: boolean; defenseDraft?: DefensePreset; onDefenseDraftChange: (draft: DefensePreset) => void; onDefense: (snapshot: DefenseSnapshot) => void; onDice: (result: DiceResult, source: string) => void; onError: (error: string) => void; onResolved?: (amount: number, type: (typeof damageTypes)[number]) => void; attacks: AttackPreset[]; activeAttackId: string; onAttacksChange: (attacks: AttackPreset[]) => void; onActiveAttackChange: (id: string) => void }) {
   const [result, setResult] = useState<AttackResult>();
+  const [renamingId, setRenamingId] = useState<string>();
+  const [nameDraft, setNameDraft] = useState("");
 
-  const update = <K extends keyof AttackForm>(key: K, value: AttackForm[K]) => setForm((prev) => ({ ...prev, [key]: value }));
-  const resetAttack = () => {
-    setForm(defaultAttackForm);
+  const activeAttack = attacks.find((attack) => attack.id === activeAttackId) ?? attacks[0];
+  const form = activeAttack?.form ?? defaultAttackForm;
+
+  // 切换攻击预设时清掉上一次的结算展示
+  useEffect(() => {
     setResult(undefined);
+  }, [activeAttack?.id]);
+
+  const update = <K extends keyof AttackForm>(key: K, value: AttackForm[K]) => {
+    if (!activeAttack) return;
+    onAttacksChange(attacks.map((attack) => (attack.id === activeAttack.id ? { ...attack, form: { ...attack.form, [key]: value } } : attack)));
+  };
+  const resetAttack = () => {
+    if (!activeAttack) return;
+    onAttacksChange(attacks.map((attack) => (attack.id === activeAttack.id ? { ...attack, form: { ...defaultAttackForm } } : attack)));
+    setResult(undefined);
+  };
+  const addAttack = () => {
+    const preset: AttackPreset = { id: uid(), name: `攻击 ${attacks.length + 1}`, form: { ...defaultAttackForm } };
+    onAttacksChange([...attacks, preset]);
+    onActiveAttackChange(preset.id);
+  };
+  const removeAttack = (id: string) => {
+    if (attacks.length <= 1) return;
+    const index = attacks.findIndex((attack) => attack.id === id);
+    const next = attacks.filter((attack) => attack.id !== id);
+    onAttacksChange(next);
+    if (id === activeAttack?.id) onActiveAttackChange(next[Math.max(0, index - 1)].id);
+  };
+  const commitRename = () => {
+    const name = nameDraft.trim().slice(0, 8);
+    setRenamingId(undefined);
+    if (name && renamingId) onAttacksChange(attacks.map((attack) => (attack.id === renamingId ? { ...attack, name } : attack)));
   };
   const saveDefenseDraft = async (nextDraft = defenseDraft) => {
     if (!nextDraft) return undefined;
@@ -880,6 +893,34 @@ function CustomDamageSection({ open, defenseDraft, onDefenseDraftChange, onDefen
   if (!open) return null;
   return (
     <div className="space-y-3 rounded-md border border-border bg-background/40 px-3 pb-3 pt-3">
+        <div className="attack-tabs" role="tablist" aria-label="攻击预设">
+          {attacks.map((attack) => {
+            const isActive = attack.id === activeAttack?.id;
+            return (
+              <div key={attack.id} className={`atab ${isActive ? "active" : ""}`}>
+                {renamingId === attack.id ? (
+                  <input
+                    className="atab-rename"
+                    autoFocus
+                    maxLength={8}
+                    value={nameDraft}
+                    onChange={(event) => setNameDraft(event.target.value)}
+                    onBlur={commitRename}
+                    onKeyDown={(event) => { if (event.key === "Enter") commitRename(); if (event.key === "Escape") setRenamingId(undefined); }}
+                  />
+                ) : (
+                  <button type="button" role="tab" aria-selected={isActive} className="atab-btn" title="双击重命名" onClick={() => onActiveAttackChange(attack.id)} onDoubleClick={() => { setRenamingId(attack.id); setNameDraft(attack.name); }}>
+                    {attack.name}
+                  </button>
+                )}
+                {attacks.length > 1 && (
+                  <button type="button" className="atab-x" aria-label={`删除${attack.name}`} onClick={() => removeAttack(attack.id)}>×</button>
+                )}
+              </div>
+            );
+          })}
+          <button type="button" className="atab-add" title="新增攻击预设" onClick={addAttack}>＋</button>
+        </div>
         <div className="flex items-center justify-between gap-2">
           <Button size="icon" variant="ghost" onClick={resetAttack} aria-label="重置"><RotateCcw className="h-4 w-4" /></Button>
           <div className="flex items-center gap-2">
@@ -903,7 +944,7 @@ function CustomDamageSection({ open, defenseDraft, onDefenseDraftChange, onDefen
           <FieldSelect label="伤害等级" value={form.woundType} onChange={(v) => update("woundType", v as AttackForm["woundType"])}>
             {damageTypes.map((type) => <option key={type} value={type}>{type}</option>)}
           </FieldSelect>
-          <FieldSelect label="伤害类型" value={form.damageKind} onChange={(v) => update("damageKind", v as CombatDamageKind)}>
+          <FieldSelect label="伤害类型" value={form.damageKind} onChange={(v) => update("damageKind", v as AttackForm["damageKind"])}>
             {combatDamageKinds.map((kind) => <option key={kind.value} value={kind.value}>{kind.label}</option>)}
           </FieldSelect>
         </div>
@@ -966,6 +1007,67 @@ function CustomDamageSection({ open, defenseDraft, onDefenseDraftChange, onDefen
   );
 }
 
+// PresetTabs：全局预设页签（方案 A：秘典页首正下方）。
+// 单击切换、双击重命名、× 删除（带确认，最后一套不可删）、＋ 以当前状态克隆新预设。
+function PresetTabs({ store, onSwitch, onAdd, onRename, onRemove }: { store: PresetStore; onSwitch: (id: string) => void; onAdd: () => void; onRename: (id: string, name: string) => void; onRemove: (id: string) => void }) {
+  const [renamingId, setRenamingId] = useState<string>();
+  const [nameDraft, setNameDraft] = useState("");
+  const [confirmId, setConfirmId] = useState<string>();
+
+  const active = store.list.find((preset) => preset.id === store.activeId) ?? store.list[0];
+
+  const commitRename = () => {
+    const name = nameDraft.trim().slice(0, 8);
+    setRenamingId(undefined);
+    if (name && renamingId) onRename(renamingId, name);
+  };
+
+  return (
+    <div className="preset-tabs" role="tablist" aria-label="全局预设">
+      {store.list.map((preset) => {
+        const isActive = preset.id === active.id;
+        return (
+          <div key={preset.id} className={`ptab ${isActive ? "active" : ""}`}>
+            {renamingId === preset.id ? (
+              <input
+                className="ptab-rename"
+                autoFocus
+                maxLength={8}
+                value={nameDraft}
+                onChange={(event) => setNameDraft(event.target.value)}
+                onBlur={commitRename}
+                onKeyDown={(event) => { if (event.key === "Enter") commitRename(); if (event.key === "Escape") setRenamingId(undefined); }}
+              />
+            ) : (
+              <button type="button" role="tab" aria-selected={isActive} className="ptab-btn" title="双击重命名" onClick={() => onSwitch(preset.id)} onDoubleClick={() => { setRenamingId(preset.id); setNameDraft(preset.name); }}>
+                {preset.name}
+              </button>
+            )}
+            {store.list.length > 1 && (
+              <button type="button" className="ptab-x" aria-label={`删除${preset.name}`} onClick={() => setConfirmId(preset.id)}>×</button>
+            )}
+          </div>
+        );
+      })}
+      <button type="button" className="ptab-add" title="克隆当前状态新建预设" onClick={onAdd}>＋</button>
+      {confirmId && (
+        <div className="number-editor-backdrop" role="presentation" onMouseDown={() => setConfirmId(undefined)}>
+          <section className="reset-dialog" role="dialog" aria-modal="true" aria-labelledby="del-preset-title" onMouseDown={(event) => event.stopPropagation()}>
+            <div className="reset-dialog-icon"><Trash2 className="h-6 w-6" /></div>
+            <div className="eyebrow text-rose-300">危险操作</div>
+            <h3 id="del-preset-title" className="font-display mt-1 text-2xl font-semibold">删除预设？</h3>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">{`「${store.list.find((preset) => preset.id === confirmId)?.name ?? ""}」的全部快照（血量、防御、豁免、掷骰与攻击预设）将被清除。`}</p>
+            <div className="mt-6 grid grid-cols-2 gap-2">
+              <Button variant="secondary" onClick={() => setConfirmId(undefined)}>保留当前</Button>
+              <Button variant="destructive" onClick={() => { onRemove(confirmId); setConfirmId(undefined); }}><Trash2 className="h-4 w-4" />确认删除</Button>
+            </div>
+          </section>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function App() {
   const [hp, setHp] = useState<HpSnapshot>(emptyHp);
   const [defense, setDefense] = useState<DefenseSnapshot>();
@@ -973,6 +1075,17 @@ export default function App() {
   const [error, setError] = useState("");
   const [diceLog, setDiceLog] = useState<Array<{ source: string; result: DiceResult }>>([]);
   const [latestDiceResult, setLatestDiceResult] = useState<DiceResult>();
+
+  // 以下状态随全局预设快照/还原，由 App 统一持有
+  const [saves, setSaves] = useState<SavesState>(defaultSaves);
+  const [saveTemp, setSaveTemp] = useState(0);
+  const [diceCfg, setDiceCfg] = useState<DiceState>(defaultDice);
+  const [attacks, setAttacks] = useState<AttackPreset[]>(() => [{ id: uid(), name: "攻击 1", form: { ...defaultAttackForm } }]);
+  const [activeAttackId, setActiveAttackId] = useState("");
+  const [store, setStore] = useState<PresetStore>();
+  // 切换预设期间（本地态已换、服务端血量/防御还在回推）暂停自动快照，
+  // 防止旧血量/防御被写进新激活的预设
+  const restoringRef = useRef(false);
 
   useEffect(() => {
     void (async () => {
@@ -984,11 +1097,63 @@ export default function App() {
         setHp(hpState);
         setDefense(defenseState);
         setDefenseDraft(cloneDefense(defenseState));
+
+        const existing = loadStore();
+        if (existing) {
+          // 血量/防御本身由服务端持久化，加载时以服务端为准（自动快照会把它们写回当前预设）；
+          // 豁免/掷骰/攻击预设只存在本地，须从预设还原。切换预设时才把快照推回服务端。
+          const active = existing.list.find((preset) => preset.id === existing.activeId) ?? existing.list[0];
+          setSaves(active.saves ?? defaultSaves);
+          setSaveTemp(active.saveTemp ?? 0);
+          setDiceCfg(active.dice ?? defaultDice);
+          if (active.attacks?.length) {
+            setAttacks(active.attacks);
+            setActiveAttackId(active.activeAttackId);
+          }
+          setStore(existing);
+        } else {
+          // 首次访问：以服务端当前状态建立默认预设，占位快照随后由自动快照补全
+          const initial: GlobalPreset = {
+            id: uid(),
+            name: "常规形态",
+            hp: { max: hpState.max, b: hpState.b, l: hpState.l, a: hpState.a },
+            defense: cloneDefense(defenseState),
+            saves: defaultSaves,
+            saveTemp: 0,
+            dice: defaultDice,
+            attacks: [],
+            activeAttackId: "",
+          };
+          const nextStore = { list: [initial], activeId: initial.id };
+          saveStore(nextStore);
+          setStore(nextStore);
+        }
       } catch (loadError) {
         setError(loadError instanceof Error ? loadError.message : String(loadError));
       }
     })();
   }, []);
+
+  // 自动快照：当前预设的内容随页面状态（血量四值/防御草稿/豁免/掷骰/攻击预设）变化即时写回 localStorage
+  useEffect(() => {
+    if (!store || restoringRef.current) return;
+    const active = store.list.find((preset) => preset.id === store.activeId) ?? store.list[0];
+    if (!active) return;
+    const next: GlobalPreset = {
+      ...active,
+      hp: { max: hp.max, b: hp.b, l: hp.l, a: hp.a },
+      defense: defenseDraft ?? active.defense,
+      saves,
+      saveTemp,
+      dice: diceCfg,
+      attacks,
+      activeAttackId,
+    };
+    if (JSON.stringify(active) === JSON.stringify(next)) return;
+    const nextStore = { ...store, list: store.list.map((preset) => (preset.id === next.id ? next : preset)) };
+    saveStore(nextStore);
+    setStore(nextStore);
+  }, [store, hp, defenseDraft, saves, saveTemp, diceCfg, attacks, activeAttackId]);
 
   const updateDefenseSnapshot = (snapshot: DefenseSnapshot) => {
     setDefense(snapshot);
@@ -998,6 +1163,77 @@ export default function App() {
   const pushDice = (result: DiceResult, source: string) => {
     setLatestDiceResult(result);
     setDiceLog((prev) => [{ result, source }, ...prev].slice(0, 30));
+  };
+
+  // applyPreset：切换/删除后的落点。本地 UI 态直接还原，
+  // 血量与防御推回服务端（服务端是单槽位，预设切换即覆盖）。
+  const applyPreset = async (preset: GlobalPreset, nextStore: PresetStore) => {
+    restoringRef.current = true;
+    setStore(nextStore);
+    setSaves(preset.saves ?? defaultSaves);
+    setSaveTemp(preset.saveTemp ?? 0);
+    setDiceCfg(preset.dice ?? defaultDice);
+    setAttacks(preset.attacks?.length ? preset.attacks : [{ id: uid(), name: "攻击 1", form: { ...defaultAttackForm } }]);
+    setActiveAttackId(preset.activeAttackId);
+    try {
+      const [hpSnap, defSnap] = await Promise.all([
+        postJson<HpSnapshot>("/api/setvalues", preset.hp),
+        preset.defense ? postJson<DefenseSnapshot>("/api/defense/update", normalizeDefenseDraft(preset.defense)) : Promise.resolve(undefined),
+      ]);
+      if (hpSnap) setHp(hpSnap);
+      if (defSnap) updateDefenseSnapshot(defSnap);
+    } catch (applyError) {
+      setError(applyError instanceof Error ? applyError.message : String(applyError));
+    } finally {
+      restoringRef.current = false;
+    }
+  };
+
+  const switchPreset = (id: string) => {
+    if (!store || id === store.activeId) return;
+    const preset = store.list.find((item) => item.id === id);
+    if (preset) void applyPreset(preset, { ...store, activeId: id });
+  };
+
+  const addPreset = () => {
+    if (!store) return;
+    const preset: GlobalPreset = {
+      id: uid(),
+      name: `形态 ${store.list.length + 1}`,
+      hp: { max: hp.max, b: hp.b, l: hp.l, a: hp.a },
+      defense: defenseDraft ? normalizeDefenseDraft(defenseDraft) : undefined,
+      saves,
+      saveTemp,
+      dice: diceCfg,
+      attacks: attacks.map((attack) => ({ ...attack, form: { ...attack.form } })),
+      activeAttackId,
+    };
+    const nextStore = { list: [...store.list, preset], activeId: preset.id };
+    saveStore(nextStore);
+    setStore(nextStore);
+  };
+
+  const renamePreset = (id: string, name: string) => {
+    if (!store) return;
+    const nextStore = { ...store, list: store.list.map((preset) => (preset.id === id ? { ...preset, name } : preset)) };
+    saveStore(nextStore);
+    setStore(nextStore);
+  };
+
+  const removePreset = (id: string) => {
+    if (!store || store.list.length <= 1) return;
+    const index = store.list.findIndex((preset) => preset.id === id);
+    if (index < 0) return;
+    const list = store.list.filter((preset) => preset.id !== id);
+    const nextActiveId = store.activeId === id ? (list[Math.max(0, index - 1)]?.id ?? list[0].id) : store.activeId;
+    const nextStore = { list, activeId: nextActiveId };
+    saveStore(nextStore);
+    if (store.activeId === id) {
+      const target = list.find((preset) => preset.id === nextActiveId);
+      if (target) void applyPreset(target, nextStore);
+    } else {
+      setStore(nextStore);
+    }
   };
 
   return (
@@ -1014,6 +1250,7 @@ export default function App() {
           </div>
         </header>
         <div className="min-w-0 content-wrap">
+        {store && <PresetTabs store={store} onSwitch={switchPreset} onAdd={addPreset} onRename={renamePreset} onRemove={removePreset} />}
         {error && (
           <div className="mb-4 flex items-center justify-between rounded-lg border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
             <span>{error}</span>
@@ -1023,12 +1260,12 @@ export default function App() {
 
         <div className="main-grid">
           <div className="space-y-4">
-            <section id="vitality" className="scroll-mt-5"><HpPanel hp={hp} onHp={setHp} onError={setError} defenseDraft={defenseDraft} onDefenseDraftChange={setDefenseDraft} onDefense={updateDefenseSnapshot} onDice={pushDice} /></section>
-            <section className="scroll-mt-5"><SavesPanel onDice={pushDice} onError={setError} /></section>
+            <section id="vitality" className="scroll-mt-5"><HpPanel hp={hp} onHp={setHp} onError={setError} defenseDraft={defenseDraft} onDefenseDraftChange={setDefenseDraft} onDefense={updateDefenseSnapshot} onDice={pushDice} attacks={attacks} activeAttackId={activeAttackId} onAttacksChange={setAttacks} onActiveAttackChange={setActiveAttackId} /></section>
+            <section className="scroll-mt-5"><SavesPanel saves={saves} temp={saveTemp} onSavesChange={setSaves} onTempChange={setSaveTemp} onDice={pushDice} onError={setError} /></section>
           </div>
           <section id="defense" className="scroll-mt-5"><DefensePanel snapshot={defense} draft={defenseDraft} onDraftChange={setDefenseDraft} onDefense={updateDefenseSnapshot} onError={setError} /></section>
           <div className="space-y-4">
-            <section id="dice" className="scroll-mt-5"><DicePanel result={latestDiceResult} onDice={pushDice} onError={setError} /></section>
+            <section id="dice" className="scroll-mt-5"><DicePanel dice={diceCfg} onDiceChange={setDiceCfg} result={latestDiceResult} onDice={pushDice} onError={setError} /></section>
             <Card>
               <CardHeader><CardTitle className="flex items-center gap-2"><Scroll className="h-4 w-4 text-amber-400/70" />骰子记录<span className="font-cinzel ml-1 text-[10px] font-medium uppercase tracking-[0.2em] text-amber-300/55">Log</span></CardTitle></CardHeader>
               <CardContent>
