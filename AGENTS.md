@@ -1,4 +1,4 @@
-# AGENTS.md · 无限规则通用计算器
+# AGENTS.md · 血棘苦修会秘典
 
 本文件记录项目协作原则与约束，供所有参与修改代码的人（包括 AI）遵守。
 
@@ -56,8 +56,8 @@
 go test ./hp/ ./rest/ ./defense/ -count=1
 
 # 2. 产物（通过后执行）
-GOOS=darwin  GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w" -o ../../../产物/无限规则计算器_macOS .
-GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w" -o ../../../产物/无限规则计算器.exe .
+GOOS=darwin  GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w" -o ../../../产物/血棘苦修会秘典_macOS_amd64 .
+GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w" -o ../../../产物/血棘苦修会秘典.exe .
 ```
 
 ---

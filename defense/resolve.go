@@ -191,6 +191,11 @@ func absorbApplies(absorbType, kind string) bool {
 
 // ResolveAttack 根据当前防御预设结算一次攻击，不修改预设、不写血量。
 func (p *Preset) ResolveAttack(in AttackInput) AttackResult {
+	return p.resolveAttack(in, dice.Roll)
+}
+
+// resolveAttack 按次注入掷骰函数，便于确定性测试，不改变生产掷骰规则或全局状态。
+func (p *Preset) resolveAttack(in AttackInput, rollDice func(int, int, int) dice.Result) AttackResult {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -294,7 +299,7 @@ func (p *Preset) ResolveAttack(in AttackInput) AttackResult {
 		return res
 	}
 
-	roll := dice.Roll(actualDP, in.ExplodeOn, in.BonusSuccess)
+	roll := rollDice(actualDP, in.ExplodeOn, in.BonusSuccess)
 	res.Roll = &roll
 	res.NaturalSuccess = roll.NaturalSuccess
 	res.FinalSuccess = roll.FinalSuccess
