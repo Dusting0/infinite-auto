@@ -1,4 +1,4 @@
-# 无限规则计算器
+# 血棘苦修会秘典
 
 无限流 TRPG 规则通用计算器（血量 / 防御 / 掷骰 / 三豁免 / 自定义伤害结算）。
 
@@ -31,10 +31,13 @@ go run .
 ## 构建
 
 ```bash
-make build    # 构建前端 + macOS/Windows 二进制到 output/
+make build    # 全量测试通过后，构建前端 + macOS/Windows 二进制到 产物/
 ```
 
-可选 `ARCH=amd64` 指定架构。
+Windows 可运行 `build-win.bat`，同样先测试，再构建前端及两个平台的产物。
+
+默认生成 `产物/血棘苦修会秘典.exe` 和 `产物/血棘苦修会秘典_macOS_amd64`。
+使用 `make build MACOS_ARCH=arm64` 可改编 macOS Apple Silicon 版本；Windows 默认 amd64，可用 `WINDOWS_ARCH` 覆盖。
 
 ## 功能概要
 
@@ -48,6 +51,7 @@ make build    # 构建前端 + macOS/Windows 二进制到 output/
 ## 产物
 
 预编译二进制见项目协作目录中的 `产物/`（不纳入本仓库）。
+Windows 运行 `血棘苦修会秘典.exe` 后，浏览器访问 `http://localhost:8080`；任务管理器中的进程名同为 `血棘苦修会秘典.exe`。
 
 ## 版本
 

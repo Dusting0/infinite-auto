@@ -1,6 +1,10 @@
 package defense
 
-import "testing"
+import (
+	"testing"
+
+	"infinite-calc/dice"
+)
 
 func TestResolveMissWhenDPNonPositive(t *testing.T) {
 	p := NewPreset("t")
@@ -118,27 +122,79 @@ func TestResistThenPierce(t *testing.T) {
 	}
 }
 
-// 伤害上限：成功数再高也不能超过上限；上限≤0 不生效
+// 场景：已有自然成功时，伤害上限在结算中封顶，且不提高较低伤害。
+// 参数 / 前置状态：无防御或减免，攻击 DP5、10 加骰、附加成功20；固定骰面8、1、2、3、4，
+// 自然成功1、最终成功21；上限分别为3、0、-1、21、30。
+// 预期结果：原始伤害始终21；上限3时伤害3，其余均21；上限≤0不生效。
+// 边界：固定检定结果排除原用例五枚骰子全失败的随机性，不放宽伤害上限断言。
 func TestDamageLimit(t *testing.T) {
-	p := NewPreset("t")
-	r := p.ResolveAttack(AttackInput{
-		AttackDP: 5, ExplodeOn: 10, BonusSuccess: 20, IsPhysical: true, DamageLimit: 3,
-	})
-	if r.Miss {
-		t.Fatalf("不应未命中: %s", r.MissReason)
+	cases := []struct {
+		name  string
+		limit int
+		want  int
+	}{
+		{"capped", 3, 3},
+		{"zero disables limit", 0, 21},
+		{"negative disables limit", -1, 21},
+		{"equal to damage", 21, 21},
+		{"above damage", 30, 21},
 	}
-	if r.AfterLimit != 3 {
-		t.Fatalf("上限后期望3，得 raw=%d afterLimit=%d", r.RawDamage, r.AfterLimit)
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			p := NewPreset("t")
+			calls := 0
+			r := p.resolveAttack(AttackInput{
+				AttackDP: 5, ExplodeOn: 10, BonusSuccess: 20, IsPhysical: true, DamageLimit: tc.limit,
+			}, func(dp, explodeOn, bonus int) dice.Result {
+				calls++
+				if dp != 5 || explodeOn != 10 || bonus != 20 {
+					t.Fatalf("掷骰参数错误: dp=%d explodeOn=%d bonus=%d", dp, explodeOn, bonus)
+				}
+				return dice.Result{
+					DP: dp, ExplodeOn: explodeOn, BonusSuccess: bonus,
+					Dice: []int{8, 1, 2, 3, 4}, NaturalSuccess: 1, FinalSuccess: 21, BonusApplied: true,
+				}
+			})
+			if calls != 1 || r.Roll == nil {
+				t.Fatalf("应恰好掷骰一次: calls=%d roll=%+v", calls, r.Roll)
+			}
+			if r.Miss {
+				t.Fatalf("不应未命中: %s", r.MissReason)
+			}
+			if r.RawDamage != 21 || r.AfterLimit != tc.want || r.FinalDamage != tc.want || r.DamageLimit != tc.limit {
+				t.Fatalf("伤害上限结算错误: raw=%d afterLimit=%d final=%d limit=%d; 期望 raw=21 damage=%d limit=%d",
+					r.RawDamage, r.AfterLimit, r.FinalDamage, r.DamageLimit, tc.want, tc.limit)
+			}
+		})
 	}
-	if r.FinalDamage > 3 {
-		t.Fatalf("最终伤害不应超过上限，得%d", r.FinalDamage)
-	}
+}
 
-	r2 := p.ResolveAttack(AttackInput{
-		AttackDP: 5, ExplodeOn: 10, BonusSuccess: 20, IsPhysical: true, DamageLimit: 0,
-	})
-	if !r2.Miss && r2.AfterLimit != r2.RawDamage {
-		t.Fatalf("上限≤0 应不封顶: raw=%d afterLimit=%d", r2.RawDamage, r2.AfterLimit)
+// 场景：无自然成功时，附加成功不生效，伤害上限也不应把零伤害提高。
+// 参数 / 前置状态：攻击 DP5、10 加骰、附加成功20；固定骰面1、2、3、4、5，
+// 自然成功与最终成功均0；分别设置上限3、0、-1，无防御附加成功、减免或吸收。
+// 预期结果：只检定一次，保留无自然成功的结果，原始、封顶后与最终伤害均0。
+func TestDamageLimitWithoutNaturalSuccess(t *testing.T) {
+	for _, limit := range []int{3, 0, -1} {
+		p := NewPreset("t")
+		calls := 0
+		r := p.resolveAttack(AttackInput{
+			AttackDP: 5, ExplodeOn: 10, BonusSuccess: 20, IsPhysical: true, DamageLimit: limit,
+		}, func(dp, explodeOn, bonus int) dice.Result {
+			calls++
+			if dp != 5 || explodeOn != 10 || bonus != 20 {
+				t.Fatalf("掷骰参数错误: dp=%d explodeOn=%d bonus=%d", dp, explodeOn, bonus)
+			}
+			return dice.Result{
+				DP: dp, ExplodeOn: explodeOn, BonusSuccess: bonus,
+				Dice: []int{1, 2, 3, 4, 5}, NaturalSuccess: 0, FinalSuccess: 0, BonusApplied: false,
+			}
+		})
+		if calls != 1 || r.Roll == nil || r.Roll.BonusApplied || r.NaturalSuccess != 0 || r.FinalSuccess != 0 {
+			t.Fatalf("上限%d应保留无自然成功的检定结果: calls=%d result=%+v", limit, calls, r)
+		}
+		if r.RawDamage != 0 || r.AfterLimit != 0 || r.FinalDamage != 0 {
+			t.Fatalf("上限%d下无自然成功应为零伤害: raw=%d afterLimit=%d final=%d", limit, r.RawDamage, r.AfterLimit, r.FinalDamage)
+		}
 	}
 }
 
