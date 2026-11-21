@@ -1310,7 +1310,7 @@ export default function App() {
         </div>
         </div>
         <footer className="mt-6 text-center text-xs text-muted-foreground">
-          <span className="tabular-nums">版本 v{APP_VERSION}</span> · Powered by Dusting
+          <span className="tabular-nums">V{APP_VERSION}</span> · Powered by Dusting
         </footer>
       </div>
     </main>
