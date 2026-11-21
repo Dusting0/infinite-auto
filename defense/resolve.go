@@ -6,16 +6,18 @@ import (
 
 // AttackInput 自定义伤害输入（敌方攻击）
 type AttackInput struct {
-	Ranged       bool   `json:"ranged"`       // false=近战 true=远程
-	AttackDP     int    `json:"attackDP"`     // 敌方攻击 DP
-	Speed        int    `json:"speed"`        // 高速
-	ArmorPierce  int    `json:"armorPierce"`  // 破甲
-	MagicPierce  int    `json:"magicPierce"`  // 破魔
-	ExplodeOn    int    `json:"explodeOn"`    // 加骰 8/9/10
-	BonusSuccess int    `json:"bonusSuccess"` // 攻击附加成功（可负）
-	IsPhysical   bool   `json:"isPhysical"`   // 兼容旧前端：true=物理，false=能量
-	DamageKind   string `json:"damageKind"`   // physical | energy | mixed
-	DamageLimit  int    `json:"damageLimit"`  // 伤害上限；≤0 不生效
+	Ranged             bool   `json:"ranged"`       // false=近战 true=远程
+	AttackDP           int    `json:"attackDP"`     // 敌方攻击 DP
+	PerfectBonus       int    `json:"perfectBonus"` // 完美：生效时加到攻击 DP，可负
+	PerfectBonusActive bool   `json:"perfectBonusActive"`
+	Speed              int    `json:"speed"`        // 高速
+	ArmorPierce        int    `json:"armorPierce"`  // 破甲
+	MagicPierce        int    `json:"magicPierce"`  // 破魔
+	ExplodeOn          int    `json:"explodeOn"`    // 加骰 8/9/10
+	BonusSuccess       int    `json:"bonusSuccess"` // 攻击附加成功（可负）
+	IsPhysical         bool   `json:"isPhysical"`   // 兼容旧前端：true=物理，false=能量
+	DamageKind         string `json:"damageKind"`   // physical | energy | mixed
+	DamageLimit        int    `json:"damageLimit"`  // 伤害上限；≤0 不生效
 
 	// 攻击方穿透声明（用于 DR /来源 与 ER 子类型匹配）
 	Magic       bool   `json:"magic"`       // 带【魔法】特性 → 穿透 DR/魔法
@@ -267,7 +269,11 @@ func (p *Preset) resolveAttack(in AttackInput, rollDice func(int, int, int) dice
 	if p.PerfectDefenseActive && p.PerfectDefense > 0 {
 		perfect = p.PerfectDefense
 	}
-	actualDP := in.AttackDP - effDef - perfect
+	attackDP := in.AttackDP
+	if in.PerfectBonusActive {
+		attackDP += in.PerfectBonus
+	}
+	actualDP := attackDP - effDef - perfect
 
 	res := AttackResult{
 		EffectiveDefense:     effDef,
