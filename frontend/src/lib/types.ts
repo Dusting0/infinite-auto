@@ -110,6 +110,8 @@ export interface DiceResult {
 export interface AttackInput {
   ranged: boolean;
   attackDP: number;
+  perfectBonus: number;
+  perfectBonusActive: boolean;
   speed: number;
   armorPierce: number;
   magicPierce: number;

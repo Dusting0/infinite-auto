@@ -7,6 +7,8 @@ export type WoundType = "冲击" | "严重" | "恶性";
 
 export type AttackForm = {
   attackDP: number;
+  perfectBonus: number;
+  perfectBonusActive: boolean;
   speed: number;
   armorPierce: number;
   magicPierce: number;
@@ -23,6 +25,8 @@ export type AttackForm = {
 
 export const defaultAttackForm: AttackForm = {
   attackDP: 8,
+  perfectBonus: 0,
+  perfectBonusActive: false,
   speed: 0,
   armorPierce: 0,
   magicPierce: 0,
@@ -76,7 +80,9 @@ export interface GlobalPreset {
   hp: { max: number; b: number; l: number; a: number };
   defense?: DefensePreset;
   saves: SavesState;
+  // saveTemp 保留旧存储字段名；界面显示为“完美加值”。旧预设没有开关时延续原先生效行为。
   saveTemp: number;
+  saveTempActive?: boolean;
   dice: DiceState;
   attacks: AttackPreset[];
   activeAttackId: string;

@@ -29,7 +29,8 @@ export function Button({ className, variant = "default", size = "md", type = "bu
     <button
       type={type}
       className={cn(
-        "inline-flex items-center justify-center gap-1.5 rounded-lg font-medium transition-all duration-150 disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.98]",
+        // 按下反馈保持点击区域不变；缩放会让 WebKit 的边缘点击在松开时落到按钮外。
+        "inline-flex items-center justify-center gap-1.5 rounded-lg font-medium transition-colors duration-150 disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:brightness-95",
         variants[variant],
         sizes[size],
         className,

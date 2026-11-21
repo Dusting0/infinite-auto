@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { AlertTriangle, CheckCircle2, ChevronDown, CircleSlash, Coffee, Dices, EyeOff, HeartPulse, Hourglass, Minus, Moon, Pencil, Plus, RotateCcw, Scroll, Shield, Skull, Trash2, X } from "lucide-react";
 import { getJson, postJson } from "./lib/api";
 import { toInt } from "./lib/utils";
+import { APP_VERSION } from "./lib/version";
 import {
   defaultAttackForm,
   defaultDice,
@@ -27,6 +28,7 @@ import type {
 import { Button } from "./components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./components/ui/card";
 import { Checkbox } from "./components/ui/checkbox";
+import { DialogBackdrop } from "./components/ui/dialog-backdrop";
 import { Input } from "./components/ui/input";
 import { Switch } from "./components/ui/switch";
 
@@ -231,17 +233,17 @@ function NumberEditor({ label, value, displayValue, status = "normal", onChange,
   return (
     <>
       <button type="button" className={[triggerClassName, status === "inactive" ? "field-inactive" : status === "boosted" ? "field-boosted" : ""].filter(Boolean).join(" ")} onClick={() => setOpen(true)} aria-haspopup="dialog" aria-expanded={open} aria-label={`编辑${label}`}>
-        <span className="inline-flex items-center gap-1 whitespace-nowrap text-xs text-muted-foreground shrink-0">
+        <span className="inline-flex min-w-0 flex-wrap items-center gap-x-1 text-left text-xs text-muted-foreground">
           {icon && <span className="text-amber-400/70">{icon}</span>}
-          {label}
+          <span className="max-w-full truncate">{label}</span>
           {status === "inactive" && <span className="tag-inactive">失效</span>}
           {status === "boosted" && <span className="tag-boosted">增强</span>}
         </span>
-        <strong>{displayValue ?? value}</strong>
+        <strong className="shrink-0">{displayValue ?? value}</strong>
       </button>
       {open && (
-        <div className="number-editor-backdrop" role="presentation" onMouseDown={() => setOpen(false)}>
-          <section className="number-editor" role="dialog" aria-modal="true" aria-labelledby="number-editor-title" onMouseDown={(event) => event.stopPropagation()}>
+        <DialogBackdrop onDismiss={() => setOpen(false)}>
+          <section className="number-editor" role="dialog" aria-modal="true" aria-labelledby="number-editor-title">
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
                 <div className="eyebrow">数值调整</div>
@@ -287,7 +289,7 @@ function NumberEditor({ label, value, displayValue, status = "normal", onChange,
               <Button onClick={commit}>确认数值</Button>
             </div>
           </section>
-        </div>
+        </DialogBackdrop>
       )}
     </>
   );
@@ -465,8 +467,8 @@ function HpPanel({ hp, onHp, onError, defenseDraft, onDefenseDraftChange, onDefe
           <Button variant="destructive" onClick={() => setResetOpen(true)}><RotateCcw className="h-4 w-4" />重置</Button>
         </div>
 
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex max-w-full flex-wrap items-center gap-2">
             <button type="button" className="flex h-9 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-sky-400/[0.06] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" onClick={() => setCustomOpen((value) => !value)} aria-expanded={customOpen} aria-label="自定义伤害">
               <ChevronDown className={`h-3.5 w-3.5 transition-transform ${customOpen ? "" : "-rotate-90"}`} />
             </button>
@@ -486,8 +488,8 @@ function HpPanel({ hp, onHp, onError, defenseDraft, onDefenseDraftChange, onDefe
 
       </CardContent>
       {longRestOpen && (
-        <div className="number-editor-backdrop" role="presentation" onMouseDown={() => setLongRestOpen(false)}>
-          <section className="long-rest-dialog" role="dialog" aria-modal="true" aria-labelledby="long-rest-title" onMouseDown={(event) => event.stopPropagation()}>
+        <DialogBackdrop onDismiss={() => setLongRestOpen(false)}>
+          <section className="long-rest-dialog" role="dialog" aria-modal="true" aria-labelledby="long-rest-title">
             <div className="long-rest-dialog-icon"><Moon className="h-6 w-6" /></div>
             <div className="eyebrow">长休选择</div>
             <h3 id="long-rest-title" className="font-display mt-1 text-2xl font-semibold">选择恢复方式</h3>
@@ -503,11 +505,11 @@ function HpPanel({ hp, onHp, onError, defenseDraft, onDefenseDraftChange, onDefe
             </div>
             <div className="mt-5"><Button variant="secondary" className="w-full" onClick={() => setLongRestOpen(false)}>取消</Button></div>
           </section>
-        </div>
+        </DialogBackdrop>
       )}
       {resetOpen && (
-        <div className="number-editor-backdrop" role="presentation" onMouseDown={() => setResetOpen(false)}>
-          <section className="reset-dialog" role="dialog" aria-modal="true" aria-labelledby="reset-hp-title" onMouseDown={(event) => event.stopPropagation()}>
+        <DialogBackdrop onDismiss={() => setResetOpen(false)}>
+          <section className="reset-dialog" role="dialog" aria-modal="true" aria-labelledby="reset-hp-title">
             <div className="reset-dialog-icon"><AlertTriangle className="h-6 w-6" /></div>
             <div className="eyebrow text-rose-300">危险操作</div>
             <h3 id="reset-hp-title" className="font-display mt-1 text-2xl font-semibold">重置血量？</h3>
@@ -517,7 +519,7 @@ function HpPanel({ hp, onHp, onError, defenseDraft, onDefenseDraftChange, onDefe
               <Button variant="destructive" onClick={reset}><RotateCcw className="h-4 w-4" />确认重置</Button>
             </div>
           </section>
-        </div>
+        </DialogBackdrop>
       )}
     </Card>
   );
@@ -619,10 +621,10 @@ function DefensePanel({ snapshot, draft, onDraftChange, onDefense, onError }: { 
           <div className="section-label">通用防御</div>
           <div className="grid grid-cols-3 items-center gap-2">
             <NumberInput label="防御附加成功" value={asNumber(draft.defenseBonusSuccess)} allowNegative icon={IcoCrown} onChange={(value) => updateNumber("defenseBonusSuccess", value)} />
-            <NumberInput label="完美防御" value={asNumber(draft.perfectDefense)} icon={IcoPentagram} onChange={(value) => updateNumber("perfectDefense", value)} />
+            <NumberInput label="完美防御" value={asNumber(draft.perfectDefense)} status={draft.perfectDefenseActive ? "normal" : "inactive"} icon={IcoPentagram} onChange={(value) => updateNumber("perfectDefense", value)} />
             <label className="flex cursor-pointer items-center gap-1.5 whitespace-nowrap">
               <span className="text-xs text-muted-foreground">生效</span>
-              <Switch checked={draft.perfectDefenseActive} onCheckedChange={(checked) => update("perfectDefenseActive", checked)} />
+              <Switch aria-label="完美防御生效" checked={draft.perfectDefenseActive} onCheckedChange={(checked) => update("perfectDefenseActive", checked)} />
             </label>
           </div>
         </section>
@@ -711,8 +713,8 @@ function DefensePanel({ snapshot, draft, onDraftChange, onDefense, onError }: { 
         </section>
       </CardContent>
       {resetOpen && (
-        <div className="number-editor-backdrop" role="presentation" onMouseDown={() => setResetOpen(false)}>
-          <section className="reset-dialog" role="dialog" aria-modal="true" aria-labelledby="reset-defense-title" onMouseDown={(event) => event.stopPropagation()}>
+        <DialogBackdrop onDismiss={() => setResetOpen(false)}>
+          <section className="reset-dialog" role="dialog" aria-modal="true" aria-labelledby="reset-defense-title">
             <div className="reset-dialog-icon"><Trash2 className="h-6 w-6" /></div>
             <div className="eyebrow text-rose-300">危险操作</div>
             <h3 id="reset-defense-title" className="font-display mt-1 text-2xl font-semibold">清空防御预设？</h3>
@@ -722,7 +724,7 @@ function DefensePanel({ snapshot, draft, onDraftChange, onDefense, onError }: { 
               <Button variant="destructive" onClick={confirmReset}><Trash2 className="h-4 w-4" />确认清空</Button>
             </div>
           </section>
-        </div>
+        </DialogBackdrop>
       )}
     </Card>
   );
@@ -760,12 +762,12 @@ function DicePanel({ dice, onDiceChange, result, onDice, onError }: { dice: Dice
 }
 
 // SavesPanel：三豁免。状态由 App 持有（随全局预设快照/还原）。
-// 「临时加值」是三项豁免共用的情境修正：检定时直接加在有效 DP 上
-// （有效 DP = DP + 临时加值，多骰多成功），一直生效直到手动改回 0。
-function SavesPanel({ saves, temp, onSavesChange, onTempChange, onDice, onError }: { saves: SavesState; temp: number; onSavesChange: (saves: SavesState) => void; onTempChange: (value: number) => void; onDice: (result: DiceResult, source: string) => void; onError: (error: string) => void }) {
+// “完美加值”由三项共用，仅在生效开关开启时加到 DP；关闭时保留输入值。
+function SavesPanel({ saves, perfectBonus, perfectActive, onSavesChange, onPerfectBonusChange, onPerfectActiveChange, onDice, onError }: { saves: SavesState; perfectBonus: number; perfectActive: boolean; onSavesChange: (saves: SavesState) => void; onPerfectBonusChange: (value: number) => void; onPerfectActiveChange: (active: boolean) => void; onDice: (result: DiceResult, source: string) => void; onError: (error: string) => void }) {
+  const effectiveBonus = perfectActive ? perfectBonus : 0;
   const rollSave = async (kind: keyof SavesState, label: string) => {
     try {
-      const next = await postJson<DiceResult>("/api/dice/roll", { dp: saves[kind].dp + temp, explodeOn: 10, bonus: saves[kind].bonus });
+      const next = await postJson<DiceResult>("/api/dice/roll", { dp: saves[kind].dp + effectiveBonus, explodeOn: 10, bonus: saves[kind].bonus });
       onDice(next, `${label}豁免`);
       onSavesChange({ ...saves, [kind]: { ...saves[kind], out: next.criticalFailure ? "大失败" : String(next.finalSuccess) } });
     } catch (error) {
@@ -777,24 +779,32 @@ function SavesPanel({ saves, temp, onSavesChange, onTempChange, onDice, onError 
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2"><Hourglass className="h-4 w-4 text-amber-400/70" />三豁免<span className="font-cinzel ml-1 text-[10px] font-medium uppercase tracking-[0.2em] text-amber-300/55">Saves</span></CardTitle>
-        <div className="w-32">
-          <NumberInput label="临时加值" value={temp} allowNegative icon={IcoCrossPattee} onChange={onTempChange} />
-        </div>
       </CardHeader>
       <CardContent className="space-y-2">
+        <div className="compact-fields items-center border-b border-border/60 pb-3">
+          <NumberInput label="完美加值" value={perfectBonus} allowNegative status={perfectActive ? "normal" : "inactive"} onChange={onPerfectBonusChange} />
+          <label className="flex items-center gap-1.5 whitespace-nowrap">
+            <span className="text-xs text-muted-foreground">生效</span>
+            <Switch aria-label="三豁免完美加值生效" checked={perfectActive} onCheckedChange={onPerfectActiveChange} />
+          </label>
+          <span className="text-right text-xs text-muted-foreground">三项共用</span>
+        </div>
         {([
           ["fort", "强韧"],
           ["ref", "反射"],
           ["will", "意志"],
         ] as const).map(([kind, label]) => (
-          <div key={kind} className="grid grid-cols-[48px_1fr_1.4fr_auto] items-center gap-2">
-            <div className="text-sm font-semibold text-amber-400/70">{label}</div>
-            <NumberInput label="DP" value={saves[kind].dp} displayValue={temp ? saves[kind].dp + temp : undefined} allowNegative onChange={(value) => onSavesChange({ ...saves, [kind]: { ...saves[kind], dp: value } })} />
-            <NumberInput label="附加成功" value={saves[kind].bonus} allowNegative onChange={(value) => onSavesChange({ ...saves, [kind]: { ...saves[kind], bonus: value } })} />
-            <div className="flex items-center gap-1">
-              <Button variant="secondary" onClick={() => rollSave(kind, label)}>检定</Button>
-              <span className="min-w-[3rem] text-right text-sm font-bold text-amber-400/80">{saves[kind].out}</span>
+          <div key={kind} role="group" aria-label={`${label}豁免`} className="space-y-2 border-b border-border/60 py-3 last:border-b-0 last:pb-0">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="text-sm font-semibold text-amber-400/70">{label}</div>
+              <div className="dp-total" aria-live="polite"><span>DP总计</span><strong>{saves[kind].dp + effectiveBonus}</strong></div>
             </div>
+            <div className="compact-fields items-center">
+              <NumberInput label="DP" value={saves[kind].dp} allowNegative onChange={(value) => onSavesChange({ ...saves, [kind]: { ...saves[kind], dp: value } })} />
+              <NumberInput label="附加成功" value={saves[kind].bonus} allowNegative onChange={(value) => onSavesChange({ ...saves, [kind]: { ...saves[kind], bonus: value } })} />
+              <Button className="justify-self-end" variant="secondary" onClick={() => rollSave(kind, label)}>检定</Button>
+            </div>
+            {saves[kind].out !== "-" && <div className="text-right text-xs text-amber-400/80" aria-live="polite">检定结果 {saves[kind].out}</div>}
           </div>
         ))}
       </CardContent>
@@ -810,7 +820,8 @@ function CustomDamageSection({ open, defenseDraft, onDefenseDraftChange, onDefen
   const [nameDraft, setNameDraft] = useState("");
 
   const activeAttack = attacks.find((attack) => attack.id === activeAttackId) ?? attacks[0];
-  const form = activeAttack?.form ?? defaultAttackForm;
+  const form = { ...defaultAttackForm, ...activeAttack?.form };
+  const attackDPTotal = form.attackDP + (form.perfectBonusActive ? form.perfectBonus : 0);
 
   // 切换攻击预设时清掉上一次的结算展示
   useEffect(() => {
@@ -867,6 +878,8 @@ function CustomDamageSection({ open, defenseDraft, onDefenseDraftChange, onDefen
       const next = await postJson<AttackResult>("/api/defense/resolve", {
         ranged: false,
         attackDP: form.attackDP,
+        perfectBonus: form.perfectBonus,
+        perfectBonusActive: form.perfectBonusActive,
         speed: form.speed,
         armorPierce: form.armorPierce,
         magicPierce: form.magicPierce,
@@ -928,17 +941,25 @@ function CustomDamageSection({ open, defenseDraft, onDefenseDraftChange, onDefen
             <Button size="icon" variant="gold" onClick={resolve} aria-label="结算"><Dices className="h-4 w-4" /></Button>
           </div>
         </div>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="compact-fields">
           <NumberInput label="攻击 DP" value={form.attackDP} allowNegative onChange={(value) => update("attackDP", value)} />
           <NumberInput label="附加成功" value={form.bonusSuccess} allowNegative onChange={(value) => update("bonusSuccess", value)} />
           <FieldSelect label="加骰" value={String(form.explodeOn)} onChange={(v) => update("explodeOn", toInt(v, 10))}>
             {explodeOptions.map((value) => <option key={value} value={value}>{value}</option>)}
           </FieldSelect>
         </div>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="compact-fields">
           <NumberInput label="高速" value={form.speed} onChange={(value) => update("speed", value)} />
           <NumberInput label="破甲" value={form.armorPierce} onChange={(value) => update("armorPierce", value)} />
           <NumberInput label="破魔" value={form.magicPierce} onChange={(value) => update("magicPierce", value)} />
+        </div>
+        <div className="compact-fields items-center">
+          <NumberInput label="完美" value={form.perfectBonus} allowNegative status={form.perfectBonusActive ? "normal" : "inactive"} onChange={(value) => update("perfectBonus", value)} />
+          <label className="flex items-center gap-1.5 whitespace-nowrap">
+            <span className="text-xs text-muted-foreground">生效</span>
+            <Switch aria-label="完美生效" checked={form.perfectBonusActive} onCheckedChange={(checked) => update("perfectBonusActive", checked)} />
+          </label>
+          <div className="dp-total justify-end" aria-live="polite"><span>DP总计</span><strong>{attackDPTotal}</strong></div>
         </div>
         <div className="grid grid-cols-2 gap-2">
           <FieldSelect label="伤害等级" value={form.woundType} onChange={(v) => update("woundType", v as AttackForm["woundType"])}>
@@ -1051,8 +1072,8 @@ function PresetTabs({ store, onSwitch, onAdd, onRename, onRemove }: { store: Pre
       })}
       <button type="button" className="ptab-add" title="克隆当前状态新建预设" onClick={onAdd}>＋</button>
       {confirmId && (
-        <div className="number-editor-backdrop" role="presentation" onMouseDown={() => setConfirmId(undefined)}>
-          <section className="reset-dialog" role="dialog" aria-modal="true" aria-labelledby="del-preset-title" onMouseDown={(event) => event.stopPropagation()}>
+        <DialogBackdrop onDismiss={() => setConfirmId(undefined)}>
+          <section className="reset-dialog" role="dialog" aria-modal="true" aria-labelledby="del-preset-title">
             <div className="reset-dialog-icon"><Trash2 className="h-6 w-6" /></div>
             <div className="eyebrow text-rose-300">危险操作</div>
             <h3 id="del-preset-title" className="font-display mt-1 text-2xl font-semibold">删除预设？</h3>
@@ -1062,7 +1083,7 @@ function PresetTabs({ store, onSwitch, onAdd, onRename, onRemove }: { store: Pre
               <Button variant="destructive" onClick={() => { onRemove(confirmId); setConfirmId(undefined); }}><Trash2 className="h-4 w-4" />确认删除</Button>
             </div>
           </section>
-        </div>
+        </DialogBackdrop>
       )}
     </div>
   );
@@ -1079,6 +1100,7 @@ export default function App() {
   // 以下状态随全局预设快照/还原，由 App 统一持有
   const [saves, setSaves] = useState<SavesState>(defaultSaves);
   const [saveTemp, setSaveTemp] = useState(0);
+  const [saveTempActive, setSaveTempActive] = useState(false);
   const [diceCfg, setDiceCfg] = useState<DiceState>(defaultDice);
   const [attacks, setAttacks] = useState<AttackPreset[]>(() => [{ id: uid(), name: "攻击 1", form: { ...defaultAttackForm } }]);
   const [activeAttackId, setActiveAttackId] = useState("");
@@ -1105,6 +1127,7 @@ export default function App() {
           const active = existing.list.find((preset) => preset.id === existing.activeId) ?? existing.list[0];
           setSaves(active.saves ?? defaultSaves);
           setSaveTemp(active.saveTemp ?? 0);
+          setSaveTempActive(active.saveTempActive ?? true);
           setDiceCfg(active.dice ?? defaultDice);
           if (active.attacks?.length) {
             setAttacks(active.attacks);
@@ -1120,6 +1143,7 @@ export default function App() {
             defense: cloneDefense(defenseState),
             saves: defaultSaves,
             saveTemp: 0,
+            saveTempActive: false,
             dice: defaultDice,
             attacks: [],
             activeAttackId: "",
@@ -1145,6 +1169,7 @@ export default function App() {
       defense: defenseDraft ?? active.defense,
       saves,
       saveTemp,
+      saveTempActive,
       dice: diceCfg,
       attacks,
       activeAttackId,
@@ -1153,7 +1178,7 @@ export default function App() {
     const nextStore = { ...store, list: store.list.map((preset) => (preset.id === next.id ? next : preset)) };
     saveStore(nextStore);
     setStore(nextStore);
-  }, [store, hp, defenseDraft, saves, saveTemp, diceCfg, attacks, activeAttackId]);
+  }, [store, hp, defenseDraft, saves, saveTemp, saveTempActive, diceCfg, attacks, activeAttackId]);
 
   const updateDefenseSnapshot = (snapshot: DefenseSnapshot) => {
     setDefense(snapshot);
@@ -1172,6 +1197,7 @@ export default function App() {
     setStore(nextStore);
     setSaves(preset.saves ?? defaultSaves);
     setSaveTemp(preset.saveTemp ?? 0);
+    setSaveTempActive(preset.saveTempActive ?? true);
     setDiceCfg(preset.dice ?? defaultDice);
     setAttacks(preset.attacks?.length ? preset.attacks : [{ id: uid(), name: "攻击 1", form: { ...defaultAttackForm } }]);
     setActiveAttackId(preset.activeAttackId);
@@ -1204,6 +1230,7 @@ export default function App() {
       defense: defenseDraft ? normalizeDefenseDraft(defenseDraft) : undefined,
       saves,
       saveTemp,
+      saveTempActive,
       dice: diceCfg,
       attacks: attacks.map((attack) => ({ ...attack, form: { ...attack.form } })),
       activeAttackId,
@@ -1261,7 +1288,7 @@ export default function App() {
         <div className="main-grid">
           <div className="space-y-4">
             <section id="vitality" className="scroll-mt-5"><HpPanel hp={hp} onHp={setHp} onError={setError} defenseDraft={defenseDraft} onDefenseDraftChange={setDefenseDraft} onDefense={updateDefenseSnapshot} onDice={pushDice} attacks={attacks} activeAttackId={activeAttackId} onAttacksChange={setAttacks} onActiveAttackChange={setActiveAttackId} /></section>
-            <section className="scroll-mt-5"><SavesPanel saves={saves} temp={saveTemp} onSavesChange={setSaves} onTempChange={setSaveTemp} onDice={pushDice} onError={setError} /></section>
+            <section className="scroll-mt-5"><SavesPanel saves={saves} perfectBonus={saveTemp} perfectActive={saveTempActive} onSavesChange={setSaves} onPerfectBonusChange={setSaveTemp} onPerfectActiveChange={setSaveTempActive} onDice={pushDice} onError={setError} /></section>
           </div>
           <section id="defense" className="scroll-mt-5"><DefensePanel snapshot={defense} draft={defenseDraft} onDraftChange={setDefenseDraft} onDefense={updateDefenseSnapshot} onError={setError} /></section>
           <div className="space-y-4">
@@ -1283,7 +1310,7 @@ export default function App() {
         </div>
         </div>
         <footer className="mt-6 text-center text-xs text-muted-foreground">
-          Powered by Dusting
+          <span className="tabular-nums">版本 v{APP_VERSION}</span> · Powered by Dusting
         </footer>
       </div>
     </main>
